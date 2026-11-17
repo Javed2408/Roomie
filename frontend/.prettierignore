@@ -1,0 +1,13 @@
+.next
+.next-e2e
+e2e/.tmp
+node_modules
+out
+build
+coverage
+test-results
+playwright-report
+package-lock.json
+next-env.d.ts
+# Generated and rewritten by `next dev`; leave its formatting alone.
+AGENTS.md

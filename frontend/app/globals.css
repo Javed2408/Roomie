@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/*
+ * Roomie design tokens.
+ *
+ * Every colour, radius and shadow used in the app is named here once.
+ * Tailwind turns each token into utility classes, for example:
+ *   --color-primary      ->  bg-primary, text-primary, border-primary
+ *   --radius-card        ->  rounded-card
+ *   --shadow-card        ->  shadow-card
+ *
+ * Components should use these names rather than raw colour values, so the
+ * whole look can be adjusted from this one file. That is also what makes
+ * dark mode possible: the second block below gives the same names darker
+ * values, and every component follows automatically.
+ */
+@theme {
+  /* Surfaces: a warm off-white page with white cards on top. */
+  --color-background: #faf9f6;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f3f1ec;
+
+  /* Text, from strongest to quietest. All pass 4.5:1 contrast on surfaces. */
+  --color-foreground: #1c1917;
+  --color-muted: #57534e;
+  --color-subtle: #6b6560;
+
+  /* Lines. "strong" is for input outlines, which need 3:1 contrast. */
+  --color-border: #e7e5e4;
+  --color-border-strong: #8a847f;
+
+  /* Brand: a calm teal used for primary actions and active states. */
+  --color-primary: #0f766e;
+  --color-primary-hover: #115e59;
+  --color-primary-soft: #e3f4f1;
+  --color-primary-strong: #134e4a;
+  --color-on-primary: #ffffff;
+
+  /* A dark teal band for the landing page call to action (both themes). */
+  --color-band: #134e4a;
+
+  /* Accent: a warm rose reserved for "like" and match moments only. */
+  --color-accent: #e11d48;
+  --color-accent-hover: #be123c;
+  --color-accent-soft: #ffe4e6;
+  --color-accent-strong: #9f1239;
+
+  /* Feedback colours: a text shade plus a soft background for each. */
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warning: #92400e;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fee2e2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #dbeafe;
+
+  /* Filled red for confirming a destructive action (white text on top). */
+  --color-danger-solid: #b91c1c;
+  --color-danger-solid-hover: #991b1b;
+
+  /* Shape and depth. */
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --shadow-card:
+    0 1px 2px rgb(28 25 23 / 0.04), 0 4px 16px rgb(28 25 23 / 0.06);
+  --shadow-raised:
+    0 2px 4px rgb(28 25 23 / 0.06), 0 12px 32px rgb(28 25 23 / 0.1);
+
+  /* Motion: short and quiet. Switched off by "reduce motion" (below). */
+  --animate-card-in: card-in 180ms ease-out;
+
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/*
+ * Dark mode. Applied automatically when the person's device is set to a
+ * dark appearance; there is no separate switch in the app.
+ *
+ * The idea is the same as light mode, mirrored: a near-black page, slightly
+ * lighter cards, light text. "Soft" backgrounds become deep tints and the
+ * text shades that sit on them become light, so contrast is preserved.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-background: #141312;
+    --color-surface: #1e1c1a;
+    --color-surface-muted: #2a2725;
+
+    --color-foreground: #f5f4f2;
+    --color-muted: #bdb7b1;
+    --color-subtle: #a19a93;
+
+    --color-border: #37332f;
+    --color-border-strong: #857e77;
+
+    --color-primary: #2dbdae;
+    --color-primary-hover: #55cdc0;
+    --color-primary-soft: #15332f;
+    --color-primary-strong: #a9e8de;
+    --color-on-primary: #06201d;
+
+    --color-accent-soft: #48131f;
+    --color-accent-strong: #fda4af;
+
+    --color-success: #6ee7a0;
+    --color-success-soft: #12331f;
+    --color-warning: #fcd34d;
+    --color-warning-soft: #3b2d0b;
+    --color-danger: #fca5a5;
+    --color-danger-soft: #451717;
+    --color-info: #a5c8ff;
+    --color-info-soft: #172b4d;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.3);
+    --shadow-raised: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  }
+}
+
+/*
+ * Fonts are loaded in app/layout.tsx, which exposes them as CSS variables.
+ * "inline" is needed because these tokens point at other variables.
+ */
+@theme inline {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  /* One consistent, clearly visible keyboard focus ring everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Buttons and links should feel clickable. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+/* Respect people who ask their device to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
