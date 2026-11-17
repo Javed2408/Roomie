@@ -1,0 +1,159 @@
+{
+  "about": "CANDIDATE directory records for the area around SRM Kattankulathur. Everything here is UNVERIFIED: it was found on public property-listing and developer web pages, not confirmed on the ground. Importing it creates unverified, unpublished records. An administrator must confirm each one (for example by visiting) and verify it before students can see it. Descriptions are deliberately left empty, to be written by whoever verifies the record.",
+  "sources_accessed": "2026-11-17",
+  "localities": [
+    {
+      "name": "Potheri",
+      "city": "Chengalpattu district",
+      "state": "Tamil Nadu",
+      "sources": ["docs/PRD.md section 6 (candidate area named by the product owner)"],
+      "notes": "The city field holds the district. Decide on a convention (district, or 'Chennai') before verifying."
+    },
+    {
+      "name": "SRM Nagar",
+      "city": "Chengalpattu district",
+      "state": "Tamil Nadu",
+      "sources": ["docs/PRD.md section 6 (candidate area named by the product owner)"],
+      "notes": "Listings often write 'SRM Nagar, Potheri'. Confirm SRM Nagar is used locally as a distinct area name, or merge it into Potheri, before verifying."
+    },
+    {
+      "name": "Kattankulathur",
+      "city": "Chengalpattu district",
+      "state": "Tamil Nadu",
+      "sources": [
+        "docs/PRD.md section 6 (candidate area named by the product owner)",
+        "https://en.wikipedia.org/wiki/Kattankulathur"
+      ],
+      "notes": "Wikipedia places it under Maraimalai Nagar municipality, Chengalpattu taluk, within the Chennai Metropolitan Area. No residential complex was confirmed here during research."
+    },
+    {
+      "name": "Guduvanchery",
+      "city": "Chengalpattu district",
+      "state": "Tamil Nadu",
+      "sources": ["docs/PRD.md section 6 (candidate area named by the product owner)"],
+      "notes": "Also spelled 'Guduvancheri' on listing sites. Keep one spelling."
+    }
+  ],
+  "societies": [
+    {
+      "name": "SRM Green Pearl",
+      "locality": "Potheri",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": [
+        "https://www.99acres.com/srm-green-pearl-potheri-chennai-south-npxid-r76649",
+        "https://www.nobroker.in/flats-for-rent-near-srm_green_pearl_chennai"
+      ],
+      "notes": "Listing sites name the builder as SRM Engineering Construction Corporation. 'SRM' is part of the project's name; it is not evidence of any link with SRM Institute of Science and Technology. Some listing data is several years old."
+    },
+    {
+      "name": "Lancor Abode Valley",
+      "locality": "Potheri",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": [
+        "https://housing.com/in/buy/projects/page/80388-lancor-abode-valley-by-lancor-holdings-ltd-in-potheri",
+        "https://www.nobroker.in/abode-valley-potheri_chennai-prjt-5ba1bad8714b56945b46d607",
+        "https://www.ghar.tv/lancor-abode-valley-potheri-chennai-okiw948740168"
+      ],
+      "notes": "Listings describe a multi-tower complex on GST Road near SRM, completed around 2011. Also listed simply as 'Abode Valley'."
+    },
+    {
+      "name": "Arun Excello Estancia",
+      "locality": "Potheri",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": [
+        "https://www.nobroker.in/flats-for-sale-in-srm_nagar_potheri_chennai",
+        "https://www.nobroker.in/flats-for-sale-near-srm_university_chennai"
+      ],
+      "notes": "Listings also use 'Arun Estancia' and 'Arun Excello Estancia Mini'. Confirm whether these are one complex or separate phases; do not add them as separate records until confirmed. One listing places it in SRM Nagar, so confirm the locality."
+    },
+    {
+      "name": "VGN Tranquil",
+      "locality": "Potheri",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": [
+        "https://www.vgn.in/index.php/project/tranquil",
+        "https://www.ghar.tv/vgn-tranquil-potheri-chennai-okiw948740203",
+        "https://www.squareyards.com/chennai-residential-property/vgn-tranquil/4362/project"
+      ],
+      "notes": "Sources disagree on the area: the developer says opposite SRM University on GST Road, ghar.tv says Potheri, Squareyards says Guduvanchery. Confirm the locality."
+    },
+    {
+      "name": "DAC Urban Park",
+      "locality": "Potheri",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": [
+        "https://housing.com/in/buy/projects/page/277758-dac-urban-park-by-dac-developers-in-potheri",
+        "https://www.jllhomes.co.in/apartments-new/chennai/dac-urban-park"
+      ],
+      "notes": "Housing.com places it in Potheri; a JLL listing mentions Guduvanchery and gives possession as May 2025. Confirm the locality and that it is complete and occupied."
+    },
+    {
+      "name": "Travancore Residency",
+      "locality": "Potheri",
+      "community_type": null,
+      "sources": ["https://www.nobroker.in/flats-for-rent-near-srm_university_chennai"],
+      "notes": "Known only from rental listings on Kattankulathur Main Road, Potheri. Confirm it is a named residential complex (not a single building) and set its community type."
+    },
+    {
+      "name": "DK Apartments",
+      "locality": "SRM Nagar",
+      "community_type": null,
+      "sources": ["https://www.mappls.com/3jmm5a"],
+      "notes": "Known only from a map listing giving 'SRM Nagar, Potheri, Kattankulathur'. Confirm whether it is a complex or a single building, which locality it belongs to, and its community type."
+    },
+    {
+      "name": "Lancor Lumina",
+      "locality": "Guduvanchery",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": [
+        "https://lancor.in/project/apartments-in-guduvanchery/lumina/",
+        "https://blog.regrob.com/top-5-gated-community-projects-in-guduvancheri-chennai"
+      ],
+      "notes": "The developer describes a gated community of several blocks on the state highway linking GST Road and OMR. A blog gives the RERA number TN/01/Building/0281/2018, not checked against the Tamil Nadu RERA register. Sources differ on whether every block is complete."
+    },
+    {
+      "name": "Urbanrise Jubilee Residences",
+      "locality": "Guduvanchery",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": ["https://www.urbanrise.in/project/jubilee-residences"],
+      "notes": "The developer describes a completed gated community of 1 BHK apartments near a reserve forest. Confirm its distance from SRM is practical for students."
+    },
+    {
+      "name": "Spkya Bliss",
+      "locality": "Guduvanchery",
+      "community_type": "APARTMENT_COMPLEX",
+      "sources": ["https://blog.regrob.com/top-5-gated-community-projects-in-guduvancheri-chennai"],
+      "notes": "Single source (a property blog). Confirm it exists, is complete and is spelled correctly before verifying."
+    }
+  ],
+  "found_but_not_imported": [
+    {
+      "name": "Gurudev Apartments",
+      "reason": "Listed in Perumattunallur, which is not one of the chosen localities."
+    },
+    {
+      "name": "Shriram Shankari",
+      "reason": "Listed in Perumattunallur, which is not one of the chosen localities."
+    },
+    {
+      "name": "VGN Southern Meadows / VGN Southern Avenue",
+      "reason": "Plotted layouts (land for sale), not homes students could rent."
+    },
+    {
+      "name": "Purva Vanam",
+      "reason": "A plotted development, not apartments or villas."
+    },
+    {
+      "name": "Aishwarya Apartment",
+      "reason": "Generic name with no confirmed area; too ambiguous to record."
+    },
+    {
+      "name": "Jmm Bell Flower Apartments",
+      "reason": "Named in one search summary, but no page describing it could be found."
+    },
+    {
+      "name": "Eben Residency",
+      "reason": "An apartment-style hotel, not a residential community."
+    }
+  ]
+}

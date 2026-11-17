@@ -1,0 +1,16 @@
+# Runtime dependencies for the Roomie backend.
+# Install with:  pip install -r requirements.txt
+#
+# Versions are pinned exactly so every developer and the CI server install
+# the same code. To upgrade one, change its number here and re-run the tests.
+fastapi==0.162.5
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.8
+psycopg[binary]==3.3.9
+pydantic-settings==2.16.3
+# Database migrations: versioned, reviewable changes to the table structure.
+alembic==1.20.1
+# Password hashing (Argon2id).
+argon2-cffi==25.1.0
+# Lets FastAPI receive uploaded files.
+python-multipart==0.0.33

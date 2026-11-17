@@ -1,0 +1,8 @@
+﻿# Development-only dependencies (testing and linting).
+# Install with:  pip install -r requirements-dev.txt
+# The first line also installs everything in requirements.txt.
+-r requirements.txt
+pytest==9.2.0
+# Used by FastAPI's TestClient to call the API inside tests.
+httpx2==2.16.0
+ruff==0.17.5
