@@ -1,0 +1,94 @@
+# Continuous integration: GitHub runs these checks on every push and pull
+# request, so broken code is caught before it is merged.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint + tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # A throwaway PostgreSQL that exists only for this test run. The password
+    # below protects nothing real, which is why it can be written here.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: roomie
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: roomie
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U roomie -d roomie"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ENVIRONMENT: test
+      POSTGRES_USER: roomie
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_DB: roomie
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
+      # Signs security tokens. A throwaway value: this CI database holds nothing real.
+      SECRET_KEY: ci-only-secret-key-not-used-anywhere-real
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Check formatting
+        run: ruff format --check .
+      # Proves the migrations build the schema on a completely empty database.
+      - name: Apply database migrations
+        run: alembic upgrade head
+      # The tests create their own separate database (roomie_test).
+      - name: Run tests
+        run: pytest
+
+  frontend:
+    name: Frontend (lint + types + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
