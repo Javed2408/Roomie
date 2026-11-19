@@ -23,6 +23,8 @@ export interface AccountProfile {
   gender: string | null;
   genderVisible: boolean;
   profileCompleted: boolean;
+  /** Your own photo's address, or null for initials. */
+  photoUrl: string | null;
 }
 
 /** Every value is optional: `null` means "not answered". */

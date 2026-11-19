@@ -3,17 +3,19 @@
 A student roommate discovery and shared-accommodation platform, starting with
 the residential communities around SRM Kattankulathur.
 
-**Current status:** Phase 5 (roommate discovery and compatibility matching)
-is complete. What is real and what is still sample data:
+**Current status:** Phase 6 (accommodation listings, listing authority
+verification and photos) is complete. What is real and what is still sample
+data:
 
 | Real: saved by the backend | Still sample data (later phases) |
 | --- | --- |
-| Registration, login, logout, sessions | Accommodation listings and interest (Phase 6) |
-| Email confirmation and password reset | Messages (Phase 7) |
-| Onboarding, profile, preferences, preferred societies | Reporting and blocking (Phase 8) |
-| Identity and student verification submission, with private document upload | The landing page's "areas we cover" section and profile preview |
+| Registration, login, logout, sessions | Messages (Phase 7) |
+| Email confirmation and password reset | Reporting and blocking (Phase 8) |
+| Onboarding, profile, preferences, preferred societies, profile photos | The landing page's "areas we cover" section and profile preview |
+| Identity and student verification submission, with private document upload | |
 | The society directory: search, area filter, admin management and history | |
 | Discover, compatibility scores, likes, passes, matches and match notifications | |
+| Accommodation listings, evidence of listing authority, photos, browsing, interest | |
 
 **The directory has no verified societies yet.** It holds researched
 candidates that a person must confirm first (see
@@ -630,6 +632,108 @@ private window). In the practice database above:
    dashboard shows a "New match" notification.
 5. Try a pass, then reload Discover: that person does not come back.
 
+## Accommodation listings
+
+There are two kinds of post, kept clearly apart everywhere:
+
+- **Room available** (`EXISTING_ACCOMMODATION`): a real room. Posted by
+  the owner, a current tenant, or an agent the owner has authorised.
+  Unauthorised brokers cannot publish.
+- **Let's find a place together** (`LOOKING_TO_RENT_TOGETHER`): students
+  without a flat looking for people to rent with. Not a property, so no
+  ownership claims, evidence or brokerage.
+
+### How a room listing goes live
+
+1. Save a draft at **Accommodation > Post a listing**. It is private.
+2. On its management page, upload the evidence for your role and add
+   photos. The page lists what is still missing.
+3. Submit it for review.
+4. An administrator checks the evidence and approves or rejects the
+   listing (with a reason you see). Only then is it public.
+
+| You are           | You upload                                   | Also needed |
+| ----------------- | -------------------------------------------- | ----------- |
+| Property owner    | Proof of ownership                           | Verified identity |
+| Current tenant    | Rental agreement (still running)             | The landlord's written permission, unless the agreement allows sharing |
+| Authorised agent  | The owner's written authorisation, plus the owner's name and contact | Verified identity, and Roomie confirming with the owner directly |
+
+**Owning or renting is not the same as being allowed to take someone
+in.** A genuine rental agreement proves tenancy only. When approving a
+tenant, the reviewer records *why* sharing is permitted (the agreement
+allows it, or the landlord gave written permission) and when the
+agreement ends; the listing is hidden automatically after that date.
+
+**Two statuses.** *Lifecycle* (draft, active, filled, closed) is yours.
+*Review* (pending, approved, rejected, suspended) is Roomie's: the API
+never accepts a review status from a creator. A listing is public only
+when it is active **and** approved, its society is in the directory, and
+its creator's account is active. Editing a live listing, or changing its
+photos or brokerage, sends it back for review.
+
+**Brokerage** is always stated, including "No brokerage". When it
+applies, the amount and who receives it are shown before anyone can
+express interest, and students must tick that they understand it first.
+Only an authorised agent may collect brokerage themselves. Every change
+is recorded. Roomie never handles any payment.
+
+**Photos** (profile and listing): JPEG, PNG or WebP up to 8 MB. The
+backend checks the file really is an image, refuses oversized "image
+bombs", re-encodes it as a fresh JPEG (removing all metadata, including
+GPS location), and stores it under a random name in
+`backend/var/photo-storage/`, separate from verification documents. The
+browser only ever gets API addresses such as
+`/api/v1/listings/{id}/photos/{photo_id}`, which check on every request
+that you may see that listing or profile.
+
+### Approving a listing by hand (until the Phase 8 admin screens)
+
+Sign in to the admin API from PowerShell exactly as in step 1 of
+"Using the admin API from PowerShell" above (that gives you `$api`,
+`$json`, `$csrf` and `$roomie`). Then:
+
+```powershell
+# 1. Submitted listings waiting for review, with their ids.
+Invoke-RestMethod "$api/admin/listings" -WebSession $roomie | Format-Table id, title, creator_type, authority_status -AutoSize
+
+# 2. One listing: what is still outstanding, and its evidence check's id.
+$id = "<the listing's id from step 1>"
+$detail = Invoke-RestMethod "$api/admin/listings/$id" -WebSession $roomie
+$detail.authority_requirements
+$check = $detail.authority_verification_id
+
+# 3a. Approve the evidence (owner or agent).
+$review = @{ status = "APPROVED" } | ConvertTo-Json
+# 3b. For a TENANT, also say why sharing is allowed and when the agreement ends:
+# $review = @{ status = "APPROVED"; tenant_permission_basis = "AGREEMENT_PERMITS_SHARING"; rental_agreement_valid_until = "2027-06-30" } | ConvertTo-Json
+Invoke-RestMethod -Method Post "$api/admin/verifications/listing-authority/$check/review" -ContentType $json -Body $review -Headers $csrf -WebSession $roomie
+
+# 4. Approve the listing, or reject it with a reason the creator will see.
+$decision = @{ status = "APPROVED" } | ConvertTo-Json
+# $decision = @{ status = "REJECTED"; note = "<what to fix>" } | ConvertTo-Json
+Invoke-RestMethod -Method Post "$api/admin/listings/$id/moderation" -ContentType $json -Body $decision -Headers $csrf -WebSession $roomie
+```
+
+The documents themselves can be downloaded only by their uploader and
+administrators, from `GET /api/v1/verification-documents/{id}/content`.
+
+### Listing API
+
+| Method and path | What it does |
+| --- | --- |
+| `GET /api/v1/listings` | Approved, active listings. Filters: `type`, `society_id`, `locality_id`, `min_rent`, `max_rent`, `available_by`, `q`; `sort` (`newest`, `rent_low`, `available_soon`); `limit`, `offset` |
+| `GET /api/v1/listings/{id}` | One public listing, with your interest status |
+| `POST`/`DELETE /api/v1/listings/{id}/interest` | Express or withdraw interest |
+| `GET /api/v1/me/interests` | Your interests and their replies |
+| `GET`/`POST /api/v1/me/listings` | Your listings; create a draft |
+| `GET`/`PUT`/`DELETE /api/v1/me/listings/{id}` | Read, edit, delete an unsubmitted draft |
+| `POST /api/v1/me/listings/{id}/submit` | Submit or resubmit for review |
+| `POST /api/v1/me/listings/{id}/lifecycle` | Mark filled, reopen or close |
+| `POST /api/v1/me/listings/{id}/photos`, `DELETE .../photos/{photo_id}` | Add or remove photos |
+| `POST /api/v1/me/listings/{id}/authority-verification` | Upload evidence |
+| `GET /api/v1/me/listings/{id}/interests`, `POST .../interests/{interest_id}` | See interested students; accept or decline |
+| `PUT`/`DELETE /api/v1/me/profile/photo` | Your profile photo |
+
 ## Running the checks
 
 **Backend** (in `backend/`, with `.venv` active; the database must be running):
@@ -807,6 +911,31 @@ roomie/
 | Database calls take 5 seconds | `POSTGRES_HOST` is set to `localhost`. Use `127.0.0.1` (see the note in `.env.example`). |
 | VS Code underlines Python imports | Press `Ctrl+Shift+P`, choose "Python: Select Interpreter", and pick `backend\.venv`. |
 
+## Phase 6 decisions
+
+- **Drafts first, then evidence, then review.** A listing is saved as a
+  private draft so evidence and photos can be attached to it; it cannot
+  be submitted until nothing required is missing, and only an
+  administrator can approve it.
+- **Tenants need a recorded permission basis.** A rental agreement proves
+  tenancy, not permission to take someone in. The reviewer records which
+  of the two allowed bases they saw, plus the agreement's end date.
+- **Changes are re-reviewed.** Edits, photo changes and brokerage changes
+  hide a live listing until approved again; a new society or creator
+  type reopens the authority check. Every change is logged in
+  `listing_changes` (migration `0005`).
+- **Photos are re-encoded, never stored as uploaded.** That is the only
+  reliable way to remove hidden metadata and anything that is not an
+  image.
+- **No new tables for photos or interest.** The existing
+  `listing_images`, `listing_interests` and `profile_photo_key` were
+  extended instead.
+- **Messaging after an accepted interest waits for Phase 7.** The student
+  is notified and told messaging is coming; nothing pretends to work.
+- **The admin screens are Phase 8.** The review and moderation APIs exist
+  and are tested; the browser tests use them as the fixture administrator,
+  whose password is set only for the throwaway `_e2e` database.
+
 ## Phase 5 decisions
 
 - **A confirmed email is the only check needed to appear in Discover.** PRD
@@ -872,8 +1001,8 @@ roomie/
 - **Tests use fictional records only.** `seed_test_fixtures` refuses to run
   on any database whose name does not end in `_test` or `_e2e`. The old
   `seed_dev` script was removed.
-- **The sample listing form keeps its own static society list** until the
-  listings API is built in Phase 6.
+- **The sample listing form kept its own static society list** until the
+  listings API was built in Phase 6 (it now uses the directory).
 
 ## Phase 3 decisions
 

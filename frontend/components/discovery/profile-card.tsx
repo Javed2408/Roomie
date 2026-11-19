@@ -113,7 +113,11 @@ export function ProfileCard({
   return (
     <Card padding="none" elevated className={cn("overflow-hidden", className)}>
       <div className="flex items-center gap-4 p-5">
-        <Avatar name={profile.fullName} size={compact ? "lg" : "xl"} />
+        <Avatar
+          name={profile.fullName}
+          src={profile.photoUrl}
+          size={compact ? "lg" : "xl"}
+        />
         <div className="min-w-0">
           <h3 className="truncate text-xl font-semibold">{profile.fullName}</h3>
           {study && <p className="text-muted text-sm">{study}</p>}

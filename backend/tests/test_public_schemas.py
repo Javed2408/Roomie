@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.enums import (
+    BrokeragePayableTo,
     DocumentType,
     ListingCreatorType,
     ListingLifecycleStatus,
@@ -32,6 +33,7 @@ def test_a_public_listing_never_contains_private_fields(db: Session) -> None:
         brokerage_applicable=True,
         brokerage_amount=8000,
         brokerage_note="One-time, per flat",
+        brokerage_payable_to=BrokeragePayableTo.LISTING_CREATOR,
     )
     authority = factories.make_authority_verification(
         db, listing, owner_name="Private Owner Name", owner_contact="+91 99999 00000"
@@ -47,7 +49,7 @@ def test_a_public_listing_never_contains_private_fields(db: Session) -> None:
     db.refresh(listing)
     moderate_listing(db, listing, new_status=ModerationStatus.APPROVED, actor=admin)
 
-    [found] = find_public_listings(db)
+    [found] = find_public_listings(db)[0]
     public = to_public_listing(found)
     output = public.model_dump_json()
 
@@ -74,6 +76,7 @@ def test_a_public_listing_never_contains_private_fields(db: Session) -> None:
         "applicable": True,
         "amount": 8000,
         "note": "One-time, per flat",
+        "payable_to": "LISTING_CREATOR",
     }
 
 

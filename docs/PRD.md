@@ -377,9 +377,17 @@ listing can be approved:
 Unauthorised brokers must not be able to publish listings. Joint-search
 posts are requests from students and have no creator type.
 
+*Implementation note (Phase 6):* owners also need verified identity. A
+genuine rental agreement proves tenancy, not permission to take someone
+in, so when approving a tenant the reviewer records whether the agreement
+itself allows sharing or the landlord gave written permission, and the
+agreement's end date; the listing is hidden once that date passes.
+
 **Brokerage.** Every existing-accommodation listing must state upfront
 whether brokerage applies and, if so, how much. Roomie does not process
-it.
+it. *(Phase 6: the listing also names who receives it; only an authorised
+agent may collect it themselves; students acknowledge the amount before
+expressing interest; every change is recorded.)*
 
 **No payments in Roomie's name.** Nobody may ask for or collect rent,
 deposits, brokerage or any other payment under Roomie's name.

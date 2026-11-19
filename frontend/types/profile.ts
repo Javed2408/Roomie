@@ -91,8 +91,8 @@ export interface StudentProfile {
   bio: string | null;
   /** Only present when the student chose to show it. */
   gender?: string | null;
-  /** Storage key of the photo; `null` shows initials instead. */
-  profilePhotoKey: string | null;
+  /** An access-checked photo address; `null` shows initials instead. */
+  photoUrl: string | null;
   // Two separate checks. Neither implies the other.
   identityVerification: VerificationState;
   studentVerification: VerificationState;

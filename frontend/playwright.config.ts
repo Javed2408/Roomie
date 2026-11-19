@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 import {
+  ADMIN_PASSWORD,
   API_URL,
   BACKEND_PORT,
   BACKEND_URL,
@@ -8,6 +9,7 @@ import {
   FRONTEND_PORT,
   FRONTEND_URL,
   OUTBOX_DIR,
+  PHOTO_STORAGE_DIR,
   STORAGE_DIR,
 } from "./e2e/settings";
 
@@ -22,6 +24,9 @@ import {
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // More parallel browsers than this overloads a typical laptop running
+  // the backend, the frontend and PostgreSQL too, and tests time out.
+  workers: 4,
   // Fail CI if a test.only was left in by accident.
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -50,6 +55,10 @@ export default defineConfig({
         EMAIL_BACKEND: "console",
         EMAIL_OUTBOX_DIR: OUTBOX_DIR,
         STORAGE_DIR,
+        PHOTO_STORAGE_DIR,
+        // Lets the tests sign in as the fixture administrator to approve
+        // listings. Only ever applied to the throwaway test database.
+        E2E_ADMIN_PASSWORD: ADMIN_PASSWORD,
         // The tests create many accounts from one machine in seconds,
         // which the real limits would (rightly) stop.
         RATE_LIMITS_ENABLED: "false",

@@ -245,6 +245,7 @@ def test_cards_hold_public_information_only(member: MakeMember, db: Session) -> 
         "academic_year",
         "bio",
         "gender",
+        "photo_url",
         "preferences",
         "societies",
         "identity_verification",

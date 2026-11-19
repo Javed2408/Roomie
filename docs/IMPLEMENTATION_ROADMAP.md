@@ -280,6 +280,19 @@ Both accommodation use cases work with persisted data.
 A student can publish either listing type, another student can browse it
 and express interest, and the owner can manage it.
 
+### Status (19 November 2026): complete
+
+Built: both listing types with create, edit, draft deletion, submission
+and resubmission; evidence upload per creator type; tenant permission
+basis and agreement end date; brokerage disclosure with payee and change
+history; profile and listing photos (validated, re-encoded, metadata
+removed, privately stored, served through access-checked routes);
+browsing with filters, sorting and pages; listing detail; "My listings",
+a management page per listing, "My interests"; interest with brokerage
+acknowledgement, accept and decline; listing notifications; admin
+moderation and review APIs (the admin screens are Phase 8). Messaging
+after an accepted interest arrives with Phase 7.
+
 ## 10. Phase 7 --- Matches and messaging
 
 ### Tasks

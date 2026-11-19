@@ -13,7 +13,9 @@ from app.api.v1 import (
     auth,
     discovery,
     health,
+    listings,
     matches,
+    my_listings,
     societies,
     verifications,
 )
@@ -28,5 +30,7 @@ api_router.include_router(societies.router)
 api_router.include_router(verifications.router)
 api_router.include_router(discovery.router)
 api_router.include_router(matches.router)
+api_router.include_router(listings.router)
+api_router.include_router(my_listings.router)
 api_router.include_router(admin.router)
 api_router.include_router(admin_directory.router)

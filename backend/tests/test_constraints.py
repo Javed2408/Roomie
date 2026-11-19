@@ -25,6 +25,7 @@ from app.models import (
     VerificationDocument,
 )
 from app.models.enums import (
+    BrokeragePayableTo,
     DocumentType,
     ListingCreatorType,
     ReportReason,
@@ -174,12 +175,79 @@ def test_no_brokerage_means_no_amount(db: Session) -> None:
     )
 
 
-def test_brokerage_with_an_amount_is_accepted(db: Session) -> None:
+def test_brokerage_with_an_amount_and_a_recipient_is_accepted(db: Session) -> None:
     listing = factories.make_property_listing(
-        db, brokerage_applicable=True, brokerage_amount=8000, brokerage_note="One-time"
+        db,
+        brokerage_applicable=True,
+        brokerage_amount=8000,
+        brokerage_note="One-time",
+        brokerage_payable_to=BrokeragePayableTo.THIRD_PARTY_AGENT,
     )
 
     assert listing.brokerage_amount == 8000
+
+
+def test_brokerage_must_name_who_receives_it(db: Session) -> None:
+    assert_rejected(
+        db,
+        lambda: factories.make_property_listing(
+            db, brokerage_applicable=True, brokerage_amount=8000
+        ),
+        "ck_accommodation_listings_brokerage_payee_matches_flag",
+    )
+
+
+def test_no_brokerage_means_no_recipient(db: Session) -> None:
+    assert_rejected(
+        db,
+        lambda: factories.make_property_listing(
+            db,
+            brokerage_applicable=False,
+            brokerage_payable_to=BrokeragePayableTo.THIRD_PARTY_AGENT,
+        ),
+        "ck_accommodation_listings_brokerage_payee_matches_flag",
+    )
+
+
+@pytest.mark.parametrize(
+    "creator_type", [ListingCreatorType.PROPERTY_OWNER, ListingCreatorType.EXISTING_TENANT]
+)
+def test_only_an_agent_may_collect_brokerage_themselves(
+    db: Session, creator_type: ListingCreatorType
+) -> None:
+    assert_rejected(
+        db,
+        lambda: factories.make_property_listing(
+            db,
+            creator_type=creator_type,
+            brokerage_applicable=True,
+            brokerage_amount=8000,
+            brokerage_payable_to=BrokeragePayableTo.LISTING_CREATOR,
+        ),
+        "ck_accommodation_listings_only_agents_collect_brokerage",
+    )
+
+
+def test_an_agent_may_collect_their_own_disclosed_brokerage(db: Session) -> None:
+    listing = factories.make_property_listing(
+        db,
+        creator_type=ListingCreatorType.AUTHORIZED_AGENT,
+        brokerage_applicable=True,
+        brokerage_amount=9000,
+        brokerage_payable_to=BrokeragePayableTo.LISTING_CREATOR,
+    )
+
+    assert listing.brokerage_payable_to == BrokeragePayableTo.LISTING_CREATOR
+
+
+def test_only_known_facilities_are_accepted(db: Session) -> None:
+    assert_rejected(
+        db,
+        lambda: factories.make_property_listing(db, facilities=["WIFI", "CALL 98765 43210"]),
+        "ck_accommodation_listings_facilities_known",
+    )
+    listing = factories.make_property_listing(db, facilities=["WIFI", "POWER_BACKUP"])
+    assert listing.facilities == ["WIFI", "POWER_BACKUP"]
 
 
 def test_a_property_must_name_its_society(db: Session) -> None:

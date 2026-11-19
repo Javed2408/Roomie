@@ -457,8 +457,8 @@ def test_an_agents_listing_goes_public_only_after_every_check(
         == 200
     )
     # ...and it is STILL not public until the listing itself is moderated.
-    assert find_public_listings(db) == []
+    assert find_public_listings(db)[0] == []
 
     db.refresh(listing)
     moderate_listing(db, listing, new_status=ModerationStatus.APPROVED, actor=admin_user)
-    assert [item.id for item in find_public_listings(db)] == [listing.id]
+    assert [item.id for item in find_public_listings(db)[0]] == [listing.id]

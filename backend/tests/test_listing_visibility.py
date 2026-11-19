@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AccommodationListing
 from app.models.enums import ListingLifecycleStatus, ListingType, ModerationStatus
-from app.repositories.listings import find_public_listing, find_public_listings
+from app.repositories.listings import ListingFilters, find_public_listing, find_public_listings
 from tests import factories
 
 pytestmark = pytest.mark.integration
@@ -52,7 +52,7 @@ def test_public_browsing_returns_only_visible_listings(db: Session) -> None:
             title=f"{lifecycle.value}/{moderation.value}",
         )
 
-    results = find_public_listings(db, limit=50)
+    results = find_public_listings(db, limit=50)[0]
 
     assert [listing.title for listing in results] == ["ACTIVE/APPROVED"]
 
@@ -68,7 +68,7 @@ def test_pending_rejected_and_suspended_never_appear(
         db, lifecycle_status=ListingLifecycleStatus.ACTIVE, moderation_status=moderation
     )
 
-    assert find_public_listings(db) == []
+    assert find_public_listings(db)[0] == []
     assert find_public_listing(db, listing.id) is None
 
 
@@ -101,8 +101,12 @@ def test_public_browsing_can_filter_by_type(db: Session) -> None:
     factories.make_property_listing(db, **visible)
     factories.make_search_listing(db, **visible)
 
-    properties = find_public_listings(db, listing_type=ListingType.EXISTING_ACCOMMODATION)
-    searches = find_public_listings(db, listing_type=ListingType.LOOKING_TO_RENT_TOGETHER)
+    properties = find_public_listings(
+        db, ListingFilters(listing_type=ListingType.EXISTING_ACCOMMODATION)
+    )[0]
+    searches = find_public_listings(
+        db, ListingFilters(listing_type=ListingType.LOOKING_TO_RENT_TOGETHER)
+    )[0]
 
     assert [item.listing_type for item in properties] == [ListingType.EXISTING_ACCOMMODATION]
     assert [item.listing_type for item in searches] == [ListingType.LOOKING_TO_RENT_TOGETHER]

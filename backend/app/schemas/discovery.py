@@ -62,6 +62,8 @@ class StudentPublicOut(BaseModel):
     bio: str | None
     # Only when the student chose to show it.
     gender: str | None
+    # An access-checked address for their photo, or None for initials.
+    photo_url: str | None = None
     preferences: PublicPreferencesOut
     societies: list[PublicSocietyChoiceOut]
     # Two separate checks, never one combined "verified".
@@ -135,6 +137,7 @@ class DecisionOut(BaseModel):
 class MatchStudentOut(BaseModel):
     id: uuid.UUID
     full_name: str
+    photo_url: str | None = None
     college_name: str
     course: str | None
     department: str | None

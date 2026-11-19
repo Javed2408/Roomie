@@ -43,8 +43,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Suspense>
         </div>
         <p className="text-subtle border-border border-t px-5 py-4 text-xs leading-relaxed">
-          Your profile, Discover and matches are saved to your account. Messages
-          and accommodation still show sample data.
+          Your profile, Discover, matches and listings are saved to your
+          account. Messages still show sample data.
         </p>
       </aside>
 

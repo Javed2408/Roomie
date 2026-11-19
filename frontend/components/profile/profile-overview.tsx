@@ -4,6 +4,7 @@ import { MapPin, Pencil, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useSession } from "@/components/session/session-provider";
+import { ProfilePhotoControls } from "@/components/profile/profile-photo";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -89,7 +90,11 @@ export function ProfileOverview() {
         <div className="space-y-5 lg:col-span-2">
           <Card>
             <div className="flex items-center gap-4">
-              <Avatar name={profile.fullName} size="xl" />
+              <Avatar
+                name={profile.fullName}
+                src={profile.photoUrl}
+                size="xl"
+              />
               <div className="min-w-0">
                 <h2 className="truncate text-xl font-semibold">
                   {profile.fullName}
@@ -100,6 +105,7 @@ export function ProfileOverview() {
                 </p>
               </div>
             </div>
+            <ProfilePhotoControls hasPhoto={profile.photoUrl !== null} />
             {profile.bio && (
               <p className="text-muted mt-5 leading-relaxed whitespace-pre-line">
                 {profile.bio}

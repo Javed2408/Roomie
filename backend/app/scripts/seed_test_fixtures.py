@@ -15,6 +15,7 @@ Safe to run more than once.
 
 from __future__ import annotations
 
+import os
 import secrets
 import sys
 from dataclasses import dataclass
@@ -78,16 +79,23 @@ FIXTURE_SOCIETIES = [
 
 
 def _fixture_admin(db: Session) -> User:
+    # Normally a random password nobody knows: the account only signs history
+    # rows. The browser tests set E2E_ADMIN_PASSWORD so they can sign in as
+    # this administrator and approve listings. This script only ever runs
+    # against a database whose name ends in _test or _e2e (see main below).
+    password = os.environ.get("E2E_ADMIN_PASSWORD") or secrets.token_urlsafe(32)
     admin = db.scalar(select(User).where(User.email == FIXTURE_ADMIN_EMAIL))
     if admin is None:
-        # A random password nobody knows: this account only signs history rows.
         admin = User(
             email=FIXTURE_ADMIN_EMAIL,
-            password_hash=hash_password(secrets.token_urlsafe(32)),
+            password_hash=hash_password(password),
             role=UserRole.ADMIN,
+            email_verified_at=datetime.now(UTC),
         )
         db.add(admin)
-        db.flush()
+    else:
+        admin.password_hash = hash_password(password)
+    db.flush()
     return admin
 
 

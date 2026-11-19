@@ -208,6 +208,9 @@ def list_matches(db: Session, user: User) -> list[MatchOut]:
                 student=MatchStudentOut(
                     id=other.id,
                     full_name=profile.full_name,
+                    photo_url=discovery_service.student_photo_url(
+                        other.id, profile.profile_photo_key
+                    ),
                     college_name=profile.college_name,
                     course=profile.course,
                     department=profile.department,

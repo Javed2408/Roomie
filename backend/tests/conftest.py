@@ -15,6 +15,7 @@ from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.main import app
 from app.services.email import Email, get_email_sender
+from app.services.photos import get_photo_storage
 from app.services.storage import LocalPrivateStorage, get_storage
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -122,8 +123,17 @@ def storage(tmp_path: Path) -> LocalPrivateStorage:
 
 
 @pytest.fixture
+def photo_storage(tmp_path: Path) -> LocalPrivateStorage:
+    """Photos, kept apart from documents, also in a temporary folder."""
+    return LocalPrivateStorage(tmp_path / "photo-storage")
+
+
+@pytest.fixture
 def new_client(
-    db: Session, mailbox: MemoryEmailSender, storage: LocalPrivateStorage
+    db: Session,
+    mailbox: MemoryEmailSender,
+    storage: LocalPrivateStorage,
+    photo_storage: LocalPrivateStorage,
 ) -> Iterator[Callable[[], TestClient]]:
     """Make API clients that use the test database, mailbox and storage.
 
@@ -138,6 +148,7 @@ def new_client(
     app.dependency_overrides[get_db] = use_test_database
     app.dependency_overrides[get_email_sender] = lambda: mailbox
     app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_photo_storage] = lambda: photo_storage
     clients: list[TestClient] = []
 
     def make() -> TestClient:

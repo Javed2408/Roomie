@@ -40,6 +40,7 @@ from app.schemas.discovery import (
 from app.services import compatibility
 from app.services.compatibility import AreaOverlap, CompatibilityResult, Factor, SocietyChoice
 from app.services.listings import public_society
+from app.services.photos import photo_version
 from app.services.verification import public_state
 
 DEFAULT_PAGE_SIZE = 10
@@ -106,6 +107,14 @@ def compatibility_input(
     )
 
 
+def student_photo_url(user_id: uuid.UUID, key: str | None) -> str | None:
+    """An access-checked API address for a profile photo, never its key.
+    The `v` part changes when the photo is replaced, so no old copy shows."""
+    if key is None:
+        return None
+    return f"/api/v1/students/{user_id}/photo?v={photo_version(key)}"
+
+
 def student_public(user: User, choices: Sequence[UserSocietyPreference]) -> StudentPublicOut:
     """The allow-listed public view of a student. Only call this for someone
     the viewer is allowed to see (see app/repositories/discovery.py)."""
@@ -129,6 +138,7 @@ def student_public(user: User, choices: Sequence[UserSocietyPreference]) -> Stud
         academic_year=profile.academic_year,
         bio=profile.bio,
         gender=profile.gender if profile.gender_visible else None,
+        photo_url=student_photo_url(user.id, profile.profile_photo_key),
         preferences=PublicPreferencesOut.model_validate(
             {field: preference(field) for field in PublicPreferencesOut.model_fields}
         ),
@@ -240,22 +250,31 @@ def discover(
     )
 
 
-def view_student(db: Session, viewer: User, student_id: uuid.UUID) -> StudentViewOut:
-    """Another student's full profile.
+def viewable_student(
+    db: Session, viewer: User, student_id: uuid.UUID
+) -> tuple[User, uuid.UUID | None]:
+    """The student, if the viewer may open their profile, and any match.
 
-    Allowed when the viewer may see them in discovery, or when the two
-    have matched. Anything else answers "not available", the same as a
-    profile that does not exist, so nothing is revealed.
+    Allowed when the two have matched, when the student is interested in
+    one of the viewer's listings (an owner or agent need not have a
+    student profile), or when the viewer may see them in discovery.
+    Anything else answers "not available", the same as a profile that
+    does not exist, so nothing is revealed.
     """
     match_id = people.active_match_id(db, viewer.id, student_id)
-    if match_id is None:
+    if match_id is not None or people.has_active_interest_from(db, viewer.id, student_id):
+        person = people.matched_person(db, viewer.id, student_id)
+    else:
         require_published(viewer)
         person = people.visible_person(db, viewer.id, student_id)
-    else:
-        person = people.matched_person(db, viewer.id, student_id)
     if person is None:
         raise NotFoundError("This profile is not available.")
+    return person, match_id
 
+
+def view_student(db: Session, viewer: User, student_id: uuid.UUID) -> StudentViewOut:
+    """Another student's full profile, and how well they fit the viewer."""
+    person, match_id = viewable_student(db, viewer, student_id)
     choices = people.society_choices(db, [viewer.id, person.id])
     result = score_pair(viewer, choices.get(viewer.id, []), person, choices.get(person.id, []))
     return StudentViewOut(

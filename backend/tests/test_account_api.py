@@ -48,7 +48,7 @@ def test_creating_then_updating_a_profile(api: TestClient) -> None:
 
     created = api.put("/api/v1/me/profile", json=PROFILE, headers=headers)
     assert created.status_code == 200
-    assert created.json()["profile"] == PROFILE | {"profile_completed": False}
+    assert created.json()["profile"] == PROFILE | {"profile_completed": False, "photo_url": None}
 
     updated = api.put(
         "/api/v1/me/profile", json=PROFILE | {"bio": "", "academic_year": 3}, headers=headers

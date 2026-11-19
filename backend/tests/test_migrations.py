@@ -18,7 +18,7 @@ def test_migrations_create_every_table(test_engine: Engine) -> None:
     created = set(inspect(test_engine).get_table_names())
 
     assert created == set(Base.metadata.tables) | {"alembic_version"}
-    assert len(Base.metadata.tables) == 25
+    assert len(Base.metadata.tables) == 26
 
 
 def test_database_matches_the_models_exactly(test_engine: Engine) -> None:

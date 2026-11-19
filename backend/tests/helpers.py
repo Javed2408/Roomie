@@ -6,6 +6,7 @@ import itertools
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any
 
@@ -81,6 +82,27 @@ def signed_in_member(
         email=f"member{number}@example.com",
         password_hash=password_hash(),
         **options,
+    )
+    client = new_client()
+    return Member(user=user, client=client, headers=log_in(client, user.email))
+
+
+def signed_in_user(
+    new_client: Callable[[], TestClient],
+    db: Session,
+    *,
+    email_verified: bool = True,
+    role: UserRole = UserRole.MEMBER,
+) -> Member:
+    """Someone with an account but NO student profile, e.g. a property owner
+    or an agent, logged in through their own browser."""
+    number = next(_member_numbers)
+    user = factories.make_user(
+        db,
+        email=f"owner{number}@example.com",
+        password_hash=password_hash(),
+        role=role,
+        email_verified_at=datetime.now(UTC) if email_verified else None,
     )
     client = new_client()
     return Member(user=user, client=client, headers=log_in(client, user.email))

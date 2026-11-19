@@ -23,6 +23,37 @@ from app.schemas.discovery import NotificationOut, NotificationsOut
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
 
+# Types in use. Stored as text, so adding one needs no migration.
+LISTING_INTEREST = "LISTING_INTEREST"
+INTEREST_ACCEPTED = "INTEREST_ACCEPTED"
+LISTING_APPROVED = "LISTING_APPROVED"
+LISTING_REJECTED = "LISTING_REJECTED"
+LISTING_SUSPENDED = "LISTING_SUSPENDED"
+AUTHORITY_NEEDS_ATTENTION = "AUTHORITY_NEEDS_ATTENTION"
+
+
+def notify(
+    db: Session,
+    user_id: uuid.UUID,
+    *,
+    type: str,  # noqa: A002 - matches the column name
+    title: str,
+    body: str,
+    reference_type: str | None = None,
+    reference_id: uuid.UUID | None = None,
+) -> None:
+    """Add one in-app notification. Nothing is emailed or pushed."""
+    db.add(
+        Notification(
+            user_id=user_id,
+            type=type,
+            title=title,
+            body=body,
+            reference_type=reference_type,
+            reference_id=reference_id,
+        )
+    )
+
 
 def list_notifications(
     db: Session, user: User, *, unread_only: bool = False, limit: int = DEFAULT_LIMIT

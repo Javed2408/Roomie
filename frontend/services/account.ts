@@ -1,7 +1,7 @@
 /** The signed-in person's profile, preferences, societies and verification. */
 
 import { API_V1_URL } from "@/lib/config";
-import { apiGet, apiPost, apiPut } from "@/services/api-client";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/services/api-client";
 import { parseAccount, parseOwnVerification } from "@/services/parse";
 import type {
   Account,
@@ -88,6 +88,22 @@ export async function saveSocieties(societyIds: string[]): Promise<Account> {
 /** Mark the profile complete. The backend refuses if anything is missing. */
 export async function publishProfile(): Promise<Account> {
   return parseAccount(await apiPost("/me/profile/publish"));
+}
+
+// --- Profile photo --------------------------------------------------------
+
+/**
+ * Upload or replace your profile photo. The backend checks it is a real
+ * image, crops it square and removes location and camera details.
+ */
+export async function uploadProfilePhoto(file: File): Promise<Account> {
+  const form = new FormData();
+  form.append("file", file);
+  return parseAccount(await apiPut("/me/profile/photo", form));
+}
+
+export async function removeProfilePhoto(): Promise<Account> {
+  return parseAccount(await apiDelete("/me/profile/photo"));
 }
 
 // --- Verification ---------------------------------------------------------

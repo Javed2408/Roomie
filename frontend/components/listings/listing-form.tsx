@@ -1,13 +1,12 @@
 "use client";
 
 import { ArrowLeft, DoorOpen, Users, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { SuccessPanel } from "@/components/auth/success-panel";
-import { ListingCard } from "@/components/listings/listing-card";
-import { SampleSocietyPicker } from "@/components/listings/sample-society-picker";
+import { SocietyPicker } from "@/components/profile/society-picker";
 import { Alert } from "@/components/ui/alert";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChoiceGroup } from "@/components/ui/choice-group";
@@ -18,29 +17,31 @@ import { useForm, type UseFormResult } from "@/hooks/use-form";
 import {
   DESCRIPTION_MAX_LENGTH,
   EMPTY_LISTING_VALUES,
-  LISTING_FIELDS,
   LISTING_OPTIONS,
+  MAX_SEARCH_SOCIETIES,
   TITLE_MAX_LENGTH,
-  buildListingPreview,
+  listingToValues,
+  toListingInput,
   validateListing,
   type ListingFormValues,
 } from "@/lib/listing-form";
-import { SOCIETIES } from "@/lib/mock/societies";
-import { submitListing } from "@/services/mock-api";
-import type { ListingPoster, ListingType } from "@/types/listing";
+import { ApiError, describeApiError } from "@/services/api-client";
+import { createListing, updateListing } from "@/services/listings";
+import type { ListingType, OwnListing } from "@/types/listing";
+import type { Society } from "@/types/society";
 
-type Stage = "type" | "details" | "preview" | "done";
 type Form = UseFormResult<ListingFormValues>;
 
-const ALL_SOCIETIES = Object.values(SOCIETIES);
-
 // What each kind of lister must prove before the listing can be approved.
-// These match the rules the backend enforces (docs/DATABASE_SCHEMA.md 3.7).
+// These match the rules the backend enforces (docs/DATABASE_SCHEMA.md).
 const EVIDENCE_HINT_DEFAULT = "Unauthorised brokers are not allowed on Roomie.";
 const EVIDENCE_HINTS: Record<string, string> = {
-  PROPERTY_OWNER: "You will be asked for proof of ownership.",
-  EXISTING_TENANT: "You will be asked for your rental agreement.",
-  AUTHORIZED_AGENT: "Needs ID, owner's authorisation and owner's confirmation.",
+  PROPERTY_OWNER:
+    "Next you will upload proof of ownership. Identity verification is also needed.",
+  EXISTING_TENANT:
+    "Next you will upload your rental agreement, and the landlord's written permission unless the agreement allows sharing.",
+  AUTHORIZED_AGENT:
+    "Next you will upload the owner's written authorisation and give the owner's contact, so Roomie can confirm with them directly. Identity verification is also needed.",
 };
 
 const TYPE_CHOICES: Array<{
@@ -54,18 +55,78 @@ const TYPE_CHOICES: Array<{
     icon: DoorOpen,
     title: "I have a room available",
     description:
-      "You own or live in a flat with space to fill, or you are an agent the owner has authorised.",
+      "You own the flat, rent it with permission to share, or are an agent the owner has authorised. You will be asked for evidence.",
   },
   {
     type: "LOOKING_TO_RENT_TOGETHER",
     icon: Users,
-    title: "I am looking to rent together",
+    title: "Let's find a place together",
     description:
-      "You do not have a flat yet and want to find people to rent one with. This is a request, not a property.",
+      "You do not have a flat yet and want people to rent one with. This is a request, not a property.",
   },
 ];
 
-function ExistingAccommodationFields({ form }: { form: Form }) {
+/** Turn the backend's field-by-field complaints into one readable message. */
+function saveErrorMessage(error: unknown): string {
+  if (
+    error instanceof ApiError &&
+    error.code === "validation_error" &&
+    Array.isArray(error.details)
+  ) {
+    const messages = error.details
+      .map((item: unknown) =>
+        typeof item === "object" && item !== null && "message" in item
+          ? String(item.message).replace(/^Value error, /, "")
+          : null,
+      )
+      .filter((message): message is string => Boolean(message));
+    if (messages.length > 0) {
+      return [...new Set(messages)].join(" ");
+    }
+  }
+  return describeApiError(error);
+}
+
+function FacilityChoices({ form }: { form: Form }) {
+  const chosen = new Set(form.values.facilities);
+  return (
+    <fieldset>
+      <legend className="text-foreground mb-1.5 text-sm font-medium">
+        Facilities (optional)
+      </legend>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+        {LISTING_OPTIONS.facilities.map((option) => (
+          <Checkbox
+            key={option.value}
+            name="facilities"
+            value={option.value}
+            checked={chosen.has(option.value)}
+            onChange={(event) =>
+              form.setValue(
+                "facilities",
+                event.target.checked
+                  ? [...form.values.facilities, option.value]
+                  : form.values.facilities.filter(
+                      (item) => item !== option.value,
+                    ),
+              )
+            }
+          >
+            {option.label}
+          </Checkbox>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function PropertyFields({
+  form,
+  savedSocieties,
+}: {
+  form: Form;
+  savedSocieties: Society[];
+}) {
   const brokerageApplies = form.values.brokerage === "APPLICABLE";
   return (
     <>
@@ -76,18 +137,29 @@ function ExistingAccommodationFields({ form }: { form: Form }) {
         hint={EVIDENCE_HINTS[form.values.creatorType] ?? EVIDENCE_HINT_DEFAULT}
         {...form.text("creatorType")}
       />
-      <SelectField
+      <SocietyPicker
         label="Society"
-        placeholder="Choose a society"
-        options={LISTING_OPTIONS.society}
-        hint="Never include a flat number or exact address."
-        {...form.text("societyId")}
+        name="societyIds"
+        value={form.values.societyIds}
+        onChange={(ids) => {
+          form.setValue("societyIds", ids);
+          form.markTouched("societyIds");
+        }}
+        savedSocieties={savedSocieties}
+        max={1}
+        hint="Only verified societies can be chosen. Never write a flat number or exact address anywhere."
+        error={form.errors.societyIds}
       />
-      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+      <div className="grid gap-x-4 gap-y-2 sm:grid-cols-3">
         <TextField
           label="Rent per person (₹ / month)"
           inputMode="numeric"
           {...form.text("rentPerPerson")}
+        />
+        <TextField
+          label="Whole flat (₹ / month, optional)"
+          inputMode="numeric"
+          {...form.text("totalRent")}
         />
         <TextField
           label="Deposit (₹, optional)"
@@ -104,7 +176,7 @@ function ExistingAccommodationFields({ form }: { form: Form }) {
           form.setValue("brokerage", value);
           form.markTouched("brokerage");
         }}
-        hint="This is shown on your listing either way."
+        hint="Shown on your listing either way, before anyone expresses interest. Roomie never collects payments."
         error={form.errors.brokerage}
       />
       {brokerageApplies && (
@@ -114,11 +186,20 @@ function ExistingAccommodationFields({ form }: { form: Form }) {
             inputMode="numeric"
             {...form.text("brokerageAmount")}
           />
-          <TextField
-            label="Brokerage note (optional)"
-            hint="For example: one-time, per flat."
-            {...form.text("brokerageNote")}
+          <SelectField
+            label="Paid to"
+            placeholder="Choose one"
+            options={LISTING_OPTIONS.payableTo}
+            hint="Only an authorised agent may collect it themselves."
+            {...form.text("brokeragePayableTo")}
           />
+          <div className="sm:col-span-2">
+            <TextField
+              label="How it is charged (optional)"
+              hint="For example: one-time, split between tenants."
+              {...form.text("brokerageNote")}
+            />
+          </div>
         </div>
       )}
       <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
@@ -128,9 +209,19 @@ function ExistingAccommodationFields({ form }: { form: Form }) {
           {...form.text("bedroomCount")}
         />
         <TextField
-          label="Rooms available"
+          label="Bedrooms free"
           inputMode="numeric"
-          {...form.text("availableSpaces")}
+          {...form.text("availableBedrooms")}
+        />
+        <TextField
+          label="People living there now"
+          inputMode="numeric"
+          {...form.text("currentOccupants")}
+        />
+        <TextField
+          label="Flatmates wanted"
+          inputMode="numeric"
+          {...form.text("roommatesWanted")}
         />
         <SelectField
           label="Furnishing"
@@ -144,23 +235,31 @@ function ExistingAccommodationFields({ form }: { form: Form }) {
           {...form.text("availableFrom")}
         />
       </div>
+      <FacilityChoices form={form} />
     </>
   );
 }
 
-function RentTogetherFields({ form }: { form: Form }) {
+function RentTogetherFields({
+  form,
+  savedSocieties,
+}: {
+  form: Form;
+  savedSocieties: Society[];
+}) {
   return (
     <>
-      <SampleSocietyPicker
+      <SocietyPicker
         label="Societies you are hoping for"
         name="societyIds"
-        societies={ALL_SOCIETIES}
         value={form.values.societyIds}
         onChange={(ids) => {
           form.setValue("societyIds", ids);
           form.markTouched("societyIds");
         }}
-        hint="Most preferred first."
+        savedSocieties={savedSocieties}
+        max={MAX_SEARCH_SOCIETIES}
+        hint={`Up to ${MAX_SEARCH_SOCIETIES}, most preferred first.`}
         error={form.errors.societyIds}
       />
       <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
@@ -183,7 +282,7 @@ function RentTogetherFields({ form }: { form: Form }) {
         <TextField
           label="More people needed"
           inputMode="numeric"
-          {...form.text("additionalRoommatesNeeded")}
+          {...form.text("roommatesWanted")}
         />
         <TextField
           label="Move-in date"
@@ -195,25 +294,49 @@ function RentTogetherFields({ form }: { form: Form }) {
   );
 }
 
+function savedSocietiesOf(existing: OwnListing | undefined): Society[] {
+  if (!existing) {
+    return [];
+  }
+  const listing = existing.listing;
+  return listing.type === "EXISTING_ACCOMMODATION"
+    ? [listing.society]
+    : listing.preferredSocieties;
+}
+
 /**
- * Create a listing in three stages: choose the type, fill in the details,
- * then preview it exactly as others will see it before submitting.
- *
- * Phase 1 shell: nothing is saved. The listings API, photo uploads and the
- * admin review queue arrive in roadmap Phases 6 and 8.
+ * Create a listing (choose the type, then fill in the details), or edit
+ * one. Saving creates a private draft and opens its management page,
+ * where photos and evidence are added and it is submitted for review.
  */
-export function ListingForm({ poster }: { poster: ListingPoster }) {
-  const [stage, setStage] = useState<Stage>("type");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function ListingForm({ existing }: { existing?: OwnListing }) {
+  const router = useRouter();
+  const isEdit = existing !== undefined;
+  const [stage, setStage] = useState<"type" | "details">(
+    isEdit ? "details" : "type",
+  );
   const fieldsRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const isFirstRender = useRef(true);
+  const savedSocieties = savedSocietiesOf(existing);
 
   const form = useForm<ListingFormValues>({
-    initialValues: EMPTY_LISTING_VALUES,
+    initialValues: existing
+      ? listingToValues(existing.listing)
+      : EMPTY_LISTING_VALUES,
     validate: validateListing,
-    // Submitting is handled by the buttons below, not a form submit.
-    onSubmit: async () => ({ ok: true }),
+    onSubmit: async (values) => {
+      try {
+        const input = toListingInput(values);
+        const saved = existing
+          ? await updateListing(existing.listing.id, input)
+          : await createListing(input);
+        router.push(`/accommodation/mine/${saved.listing.id}`);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: saveErrorMessage(error) };
+      }
+    },
   });
 
   // Move focus to the heading whenever the stage changes.
@@ -225,64 +348,20 @@ export function ListingForm({ poster }: { poster: ListingPoster }) {
     headingRef.current?.focus();
   }, [stage]);
 
-  const isExisting = form.values.listingType === "EXISTING_ACCOMMODATION";
+  const isProperty = form.values.listingType === "EXISTING_ACCOMMODATION";
 
   function chooseType(type: ListingType) {
     form.setValue("listingType", type);
+    form.setValue("societyIds", []);
     setStage("details");
   }
 
-  function goToPreview() {
-    const fields = LISTING_FIELDS[form.values.listingType] ?? [];
-    if (form.validateFields(fields, fieldsRef.current)) {
-      setStage("preview");
-    }
-  }
-
-  async function submit() {
-    setIsSubmitting(true);
-    const result = await submitListing();
-    setIsSubmitting(false);
-    if (result.ok) {
-      setStage("done");
-    }
-  }
-
-  if (stage === "done") {
-    return (
-      <SuccessPanel
-        title="Submitted for review"
-        actions={
-          <>
-            <ButtonLink href="/accommodation/mine" size="lg" fullWidth>
-              Go to my listings
-            </ButtonLink>
-            <ButtonLink
-              href="/accommodation"
-              variant="ghost"
-              size="lg"
-              fullWidth
-            >
-              Browse accommodation
-            </ButtonLink>
-          </>
-        }
-      >
-        <p>
-          In the finished app your post would now be{" "}
-          <span className="text-foreground font-medium">pending review</span>{" "}
-          and would appear publicly once approved. In this preview nothing was
-          saved.
-        </p>
-      </SuccessPanel>
-    );
-  }
-
-  const headings: Record<Exclude<Stage, "done">, string> = {
-    type: "What are you posting?",
-    details: isExisting ? "About the room" : "About your search",
-    preview: "Check your post",
-  };
+  const heading =
+    stage === "type"
+      ? "What are you posting?"
+      : isProperty
+        ? "About the room"
+        : "About your search";
 
   return (
     <div>
@@ -291,7 +370,7 @@ export function ListingForm({ poster }: { poster: ListingPoster }) {
         tabIndex={-1}
         className="mb-5 text-xl font-semibold outline-none"
       >
-        {headings[stage]}
+        {heading}
       </h2>
 
       {stage === "type" && (
@@ -319,36 +398,46 @@ export function ListingForm({ poster }: { poster: ListingPoster }) {
       )}
 
       {stage === "details" && (
-        <form
-          {...form.formProps}
-          onSubmit={(event) => {
-            event.preventDefault();
-            goToPreview();
-          }}
-        >
+        <form {...form.formProps}>
+          {existing?.moderationStatus === "APPROVED" && (
+            <Alert tone="warning" className="mb-5">
+              Your listing is live. Saving changes sends it back for review, and
+              it is hidden until Roomie approves the change.
+            </Alert>
+          )}
+          {isEdit && isProperty && (
+            <Alert tone="info" className="mb-5">
+              Changing the society or your connection to the property means your
+              evidence of authority has to be checked again.
+            </Alert>
+          )}
           <Card padding="lg">
             <div ref={fieldsRef} className="space-y-2">
               <TextField
                 label="Title"
-                hint={`A short summary, up to ${TITLE_MAX_LENGTH} characters.`}
+                hint={`A short summary, up to ${TITLE_MAX_LENGTH} characters. No phone numbers or emails.`}
+                maxLength={TITLE_MAX_LENGTH}
                 {...form.text("title")}
               />
-              {isExisting ? (
-                <ExistingAccommodationFields form={form} />
+              {isProperty ? (
+                <PropertyFields form={form} savedSocieties={savedSocieties} />
               ) : (
-                <RentTogetherFields form={form} />
+                <RentTogetherFields
+                  form={form}
+                  savedSocieties={savedSocieties}
+                />
               )}
               <TextAreaField
                 label="Description"
                 hint={
-                  isExisting
-                    ? "What is the flat like, and who would suit it?"
+                  isProperty
+                    ? "What is the flat like, and who would suit it? No contact details: people reach you through Roomie."
                     : "Who are you, and what kind of flatmate are you looking for?"
                 }
                 maxLength={DESCRIPTION_MAX_LENGTH}
                 {...form.text("description")}
               />
-              {isExisting && (
+              {isProperty && (
                 <Checkbox
                   name="confirmedAuthority"
                   checked={form.values.confirmedAuthority}
@@ -357,42 +446,43 @@ export function ListingForm({ poster }: { poster: ListingPoster }) {
                   }
                   error={form.errors.confirmedAuthority}
                 >
-                  I confirm that I own this property, or have the owner&apos;s
-                  permission to list it.
+                  I confirm I own this property, or I have the owner&apos;s
+                  permission to offer it, and I will provide evidence. I
+                  understand this statement alone does not verify anything.
                 </Checkbox>
               )}
             </div>
           </Card>
 
-          <div className="mt-6 flex items-center justify-between gap-3">
-            <Button variant="ghost" onClick={() => setStage("type")}>
-              <ArrowLeft aria-hidden="true" className="size-4" />
-              Back
-            </Button>
-            <Button type={form.submitType}>Preview</Button>
-          </div>
-        </form>
-      )}
+          {form.formError && (
+            <Alert tone="danger" role="alert" className="mt-5">
+              {form.formError}
+            </Alert>
+          )}
 
-      {stage === "preview" && (
-        <div>
-          <Alert tone="info" className="mb-5">
-            This is how your post will look. New posts start as not verified and
-            are reviewed before they appear publicly.
-          </Alert>
-          <div className="max-w-xl">
-            <ListingCard listing={buildListingPreview(form.values, poster)} />
-          </div>
           <div className="mt-6 flex items-center justify-between gap-3">
-            <Button variant="ghost" onClick={() => setStage("details")}>
-              <ArrowLeft aria-hidden="true" className="size-4" />
-              Edit
-            </Button>
-            <Button onClick={submit} isLoading={isSubmitting}>
-              Submit for review
+            {isEdit ? (
+              <Button variant="ghost" onClick={() => router.back()}>
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="ghost" onClick={() => setStage("type")}>
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                Back
+              </Button>
+            )}
+            <Button type={form.submitType} isLoading={form.isSubmitting}>
+              {isEdit ? "Save changes" : "Save draft"}
             </Button>
           </div>
-        </div>
+          {!isEdit && (
+            <p className="text-muted mt-3 text-right text-sm">
+              Drafts are private. You will add photos
+              {isProperty ? " and evidence" : ""} next, then submit for review.
+            </p>
+          )}
+        </form>
       )}
     </div>
   );

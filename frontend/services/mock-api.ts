@@ -17,8 +17,5 @@ function succeedAfterDelay(): Promise<MockResult> {
   );
 }
 
-/** Phase 6: submit a new listing for admin review. */
-export const submitListing = succeedAfterDelay;
-
 /** Phase 8: record a report for moderators. */
 export const submitReport = succeedAfterDelay;

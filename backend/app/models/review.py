@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CreatedAtMixin, UuidPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class ReviewEvent(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
@@ -53,3 +57,5 @@ class ReviewEvent(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     from_status: Mapped[str | None] = mapped_column(String(20))
     to_status: Mapped[str] = mapped_column(String(20), nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
+
+    actor: Mapped[User] = relationship()

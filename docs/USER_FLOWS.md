@@ -261,6 +261,40 @@ rejection or suspension.
 Nobody may request or collect any payment in Roomie's name, and the
 interface must say so wherever money is mentioned.
 
+### As built in Phase 6
+
+1.  **Save a draft.** The form saves a private draft and opens the
+    listing's management page. Only directory societies can be chosen.
+    Titles and descriptions may not contain phone numbers or email
+    addresses: people reach the poster through Roomie.
+2.  **Add evidence and photos** on the management page. It lists, in
+    plain words, what is still missing before the listing can be
+    submitted. The "Submit for review" button stays disabled until
+    nothing is missing.
+3.  **Submit.** The listing joins the review queue. Nothing is approved
+    automatically, and uploading a document never verifies anything by
+    itself.
+4.  **Review.** An administrator checks the evidence (for a tenant,
+    recording why sharing is permitted and when the agreement ends; for
+    an agent, after confirming with the owner directly), then approves
+    or rejects the listing with a reason the creator sees.
+5.  **Live.** The listing appears in browsing. Editing it, changing its
+    photos or changing its brokerage sends it back to review and hides it
+    until approved again.
+6.  **Interest.** A student with a published profile and a confirmed
+    email taps "I am interested". If brokerage applies, they must first
+    tick that they understand the amount and who receives it; that
+    amount is recorded. The creator sees their profile and accepts or
+    declines. Messaging after acceptance arrives in Phase 7.
+7.  **Fill or close.** The creator marks the listing filled (it can be
+    reopened) or closes it for good. These never change the review
+    status.
+
+**Ownership is not permission to accommodate.** Owning a flat, or holding
+a genuine rental agreement for it, is not the same as being allowed to
+take someone in. A tenant's agreement proves tenancy only; unless it
+allows sharing, the landlord's written permission is needed too.
+
 ## 6. Flow D --- Find a flat together
 
 ``` mermaid

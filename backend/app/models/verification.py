@@ -35,6 +35,7 @@ from app.models.enums import (
     DocumentType,
     OwnerConfirmationStatus,
     StudentVerificationMethod,
+    TenantPermissionBasis,
     VerificationStatus,
 )
 
@@ -146,6 +147,15 @@ class ListingAuthorityVerification(UuidPrimaryKeyMixin, ReviewableMixin, Base):
     owner_confirmed_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     owner_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     owner_confirmation_note: Mapped[str | None] = mapped_column(Text)
+
+    # --- Tenants only, recorded by the reviewer when approving ---
+    # What showed the tenant may take another person in (see the enum).
+    tenant_permission_basis: Mapped[TenantPermissionBasis | None] = mapped_column(
+        enum_type(TenantPermissionBasis, "tenant_permission_basis", 30)
+    )
+    # The rental agreement's end date. After it, the authority lapses and
+    # the listing is no longer shown.
+    rental_agreement_valid_until: Mapped[date | None] = mapped_column(Date)
 
     listing: Mapped[AccommodationListing] = relationship(back_populates="authority_verification")
     documents: Mapped[list[VerificationDocument]] = relationship(

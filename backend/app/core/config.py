@@ -97,6 +97,14 @@ class Settings(BaseSettings):
     storage_dir: Path = VAR_DIR / "private-storage"
     max_upload_bytes: int = Field(default=5 * 1024 * 1024, ge=1024)
 
+    # --- Photos (profile and listing) ---
+    # Kept apart from verification documents: a different folder, and
+    # different rules about who may see them. Also never served directly.
+    photo_storage_dir: Path = VAR_DIR / "photo-storage"
+    # Phone photos are large; they are shrunk after upload.
+    max_photo_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)
+    max_listing_photos: int = Field(default=8, ge=1, le=30)
+
     # --- Compatibility scoring (PRD section 8.6) ---
     # How much each factor counts towards the score, in percent. The six
     # values must add up to 100. To change them without editing code, set

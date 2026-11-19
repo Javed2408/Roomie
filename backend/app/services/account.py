@@ -30,6 +30,7 @@ from app.schemas.account import (
     UserOut,
 )
 from app.services.listings import public_society
+from app.services.photos import photo_version
 from app.services.verification import Verification
 
 
@@ -40,6 +41,12 @@ def user_out(user: User) -> UserOut:
         role=user.role,
         email_verified=user.email_verified_at is not None,
     )
+
+
+def _own_photo_url(key: str | None) -> str | None:
+    if key is None:
+        return None
+    return f"/api/v1/me/profile/photo?v={photo_version(key)}"
 
 
 def own_verification(verification: Verification | None) -> OwnVerificationOut:
@@ -77,7 +84,13 @@ def get_account(db: Session, user: User) -> AccountOut:
     profile, preferences = user.student_profile, user.roommate_preferences
     return AccountOut(
         user=user_out(user),
-        profile=ProfileOut.model_validate(profile, from_attributes=True) if profile else None,
+        profile=(
+            ProfileOut.model_validate(profile, from_attributes=True).model_copy(
+                update={"photo_url": _own_photo_url(profile.profile_photo_key)}
+            )
+            if profile
+            else None
+        ),
         preferences=(
             PreferencesOut.model_validate(preferences, from_attributes=True)
             if preferences
@@ -182,3 +195,33 @@ def publish_profile(db: Session, user: User) -> None:
     if profile is not None:
         profile.profile_completed = True
         db.flush()
+
+
+# --- Profile photo -----------------------------------------------------------------
+
+
+def set_profile_photo(db: Session, user: User, *, key: str) -> str | None:
+    """Point the profile at a newly saved, cleaned photo.
+
+    Returns the previous photo's storage key, to delete once the change has
+    been committed (deleting it first could leave the profile pointing at
+    nothing if the save failed).
+    """
+    profile = user.student_profile
+    if profile is None:
+        raise BusinessRuleError("Add your name and college before adding a photo.")
+    previous = profile.profile_photo_key
+    profile.profile_photo_key = key
+    db.flush()
+    return previous
+
+
+def remove_profile_photo(db: Session, user: User) -> str | None:
+    """Remove the photo. Returns its storage key, to delete after commit."""
+    profile = user.student_profile
+    if profile is None or profile.profile_photo_key is None:
+        return None
+    previous = profile.profile_photo_key
+    profile.profile_photo_key = None
+    db.flush()
+    return previous

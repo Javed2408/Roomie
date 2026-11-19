@@ -8,6 +8,7 @@ new model file must be added to the imports below.
 from app.models.auth import AccountToken, UserSession
 from app.models.listing import (
     AccommodationListing,
+    ListingChange,
     ListingImage,
     ListingInterest,
     ListingSocietyPreference,
@@ -35,6 +36,7 @@ __all__ = [
     "DirectoryEvent",
     "IdentityVerification",
     "ListingAuthorityVerification",
+    "ListingChange",
     "ListingImage",
     "ListingInterest",
     "ListingSocietyPreference",

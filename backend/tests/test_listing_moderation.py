@@ -39,7 +39,7 @@ def test_a_property_cannot_be_approved_without_verified_authority(db: Session) -
         moderate_listing(db, listing, new_status=APPROVED, actor=admin)
 
     assert listing.moderation_status == ModerationStatus.PENDING
-    assert find_public_listings(db) == []
+    assert find_public_listings(db)[0] == []
 
 
 def test_a_property_with_verified_authority_can_be_approved(db: Session) -> None:
@@ -47,12 +47,13 @@ def test_a_property_with_verified_authority_can_be_approved(db: Session) -> None
     listing = factories.make_property_listing(db, owner=owner)
     authority = factories.make_authority_verification(db, listing)
     factories.add_document(db, owner, DocumentType.OWNERSHIP_PROOF, authority=authority)
+    factories.approve_identity(db, owner, admin)
     review_verification(db, authority, new_status=VerificationStatus.APPROVED, reviewer=admin)
     db.refresh(listing)
 
     moderate_listing(db, listing, new_status=APPROVED, actor=admin)
 
-    assert [item.id for item in find_public_listings(db)] == [listing.id]
+    assert [item.id for item in find_public_listings(db)[0]] == [listing.id]
 
 
 def test_a_search_request_needs_no_listing_authority(db: Session) -> None:
@@ -69,13 +70,13 @@ def test_suspending_removes_a_listing_from_public_view(db: Session) -> None:
     admin = factories.make_admin(db)
     listing = factories.make_search_listing(db)
     moderate_listing(db, listing, new_status=APPROVED, actor=admin)
-    assert len(find_public_listings(db)) == 1
+    assert len(find_public_listings(db)[0]) == 1
 
     moderate_listing(
         db, listing, new_status=ModerationStatus.SUSPENDED, actor=admin, note="Reported as a scam"
     )
 
-    assert find_public_listings(db) == []
+    assert find_public_listings(db)[0] == []
     # The creator's own status was not changed by the admin's decision.
     assert listing.lifecycle_status == ListingLifecycleStatus.ACTIVE
 

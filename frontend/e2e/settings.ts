@@ -23,3 +23,13 @@ const TMP_DIR = path.resolve(__dirname, ".tmp");
 export const OUTBOX_DIR = path.join(TMP_DIR, "outbox");
 /** Where the test backend stores uploaded documents. */
 export const STORAGE_DIR = path.join(TMP_DIR, "private-storage");
+/** Where the test backend stores photos (kept apart from documents). */
+export const PHOTO_STORAGE_DIR = path.join(TMP_DIR, "photo-storage");
+
+/**
+ * The fixture administrator in the throwaway test database. The password
+ * is a test value only: the seeding script refuses any database whose
+ * name does not end in _test or _e2e.
+ */
+export const ADMIN_EMAIL = "fixtures-admin@roomie.test";
+export const ADMIN_PASSWORD = "e2e-fixture-admin-only";

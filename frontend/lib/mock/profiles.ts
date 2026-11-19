@@ -26,7 +26,7 @@ export const DISCOVERY_CANDIDATES: DiscoveryCandidate[] = [
       department: "Electronics",
       academicYear: 2,
       bio: "Early riser who likes a calm flat. Happy to split cooking and keep a cleaning rota.",
-      profilePhotoKey: null,
+      photoUrl: null,
       identityVerification: "NOT_VERIFIED",
       studentVerification: "NOT_VERIFIED",
       preferences: {
@@ -64,7 +64,7 @@ export const DISCOVERY_CANDIDATES: DiscoveryCandidate[] = [
       department: "Mechanical",
       academicYear: 3,
       bio: "Into football and weekend treks. I am out most evenings and keep things low-drama at home.",
-      profilePhotoKey: null,
+      photoUrl: null,
       identityVerification: "NOT_VERIFIED",
       studentVerification: "NOT_VERIFIED",
       preferences: {
@@ -98,7 +98,7 @@ export const DISCOVERY_CANDIDATES: DiscoveryCandidate[] = [
       department: "Design",
       academicYear: 1,
       bio: "First year, new to the area. I draw a lot, love quiet mornings and am looking for a friendly, respectful flat.",
-      profilePhotoKey: null,
+      photoUrl: null,
       identityVerification: "NOT_VERIFIED",
       studentVerification: "NOT_VERIFIED",
       preferences: {

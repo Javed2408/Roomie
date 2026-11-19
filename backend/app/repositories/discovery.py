@@ -23,7 +23,14 @@ from collections.abc import Iterable, Sequence
 from sqlalchemy import ColumnElement, Select, and_, exists, or_, select
 from sqlalchemy.orm import Session, contains_eager, selectinload
 
-from app.models.enums import AccountStatus, MatchStatus, SwipeAction, UserRole
+from app.models.enums import (
+    AccountStatus,
+    ListingInterestStatus,
+    MatchStatus,
+    SwipeAction,
+    UserRole,
+)
+from app.models.listing import AccommodationListing, ListingInterest
 from app.models.matching import Match, Swipe
 from app.models.profile import StudentProfile, UserSocietyPreference
 from app.models.safety import Block
@@ -151,4 +158,27 @@ def active_match_id(db: Session, a: uuid.UUID, b: uuid.UUID) -> uuid.UUID | None
             Match.user_two_id == user_two,
             Match.status == MatchStatus.ACTIVE,
         )
+    )
+
+
+def has_active_interest_from(db: Session, owner_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+    """Whether `student_id` is interested in one of `owner_id`'s listings.
+
+    That lets the listing's creator open the student's profile, even with
+    no student profile of their own (an owner or agent need not be one).
+    """
+    return (
+        db.scalar(
+            select(ListingInterest.id)
+            .join(AccommodationListing, AccommodationListing.id == ListingInterest.listing_id)
+            .where(
+                AccommodationListing.owner_id == owner_id,
+                ListingInterest.user_id == student_id,
+                ListingInterest.status.in_(
+                    [ListingInterestStatus.PENDING, ListingInterestStatus.ACCEPTED]
+                ),
+            )
+            .limit(1)
+        )
+        is not None
     )

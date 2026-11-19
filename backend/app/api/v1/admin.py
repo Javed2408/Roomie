@@ -1,4 +1,4 @@
-"""Administrator endpoints: the verification review queues.
+"""Administrator endpoints: verification review queues and listing moderation.
 
 Every route requires an administrator (`CurrentAdmin`). The screens that
 use these are built in roadmap Phase 8; the endpoints exist now so that a
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentAdmin, Database
 from app.core.errors import NotFoundError
-from app.models.enums import VerificationStatus
+from app.models.enums import ListingLifecycleStatus, ModerationStatus, VerificationStatus
 from app.models.listing import AccommodationListing
 from app.models.user import User
 from app.models.verification import (
@@ -22,14 +22,20 @@ from app.models.verification import (
     ListingAuthorityVerification,
     StudentVerification,
 )
+from app.repositories.listings import with_listing_details
 from app.schemas.account import DocumentOut
 from app.schemas.admin import (
+    AdminListingDetail,
+    AdminListingSummary,
     AdminVerificationDetail,
     AdminVerificationSummary,
+    ModerationRequest,
     OwnerConfirmationRequest,
     ReviewRequest,
     VerificationKind,
 )
+from app.services.listing_moderation import moderate_listing
+from app.services.listing_views import admin_detail, admin_summary
 from app.services.verification import (
     Verification,
     identity_verification_of,
@@ -98,6 +104,8 @@ def _detail(
         detail.owner_name = verification.owner_name
         detail.owner_contact = verification.owner_contact
         detail.owner_confirmation_status = verification.owner_confirmation_status
+        detail.tenant_permission_basis = verification.tenant_permission_basis
+        detail.rental_agreement_valid_until = verification.rental_agreement_valid_until
         detail.owner_confirmation_note = verification.owner_confirmation_note
         detail.outstanding_requirements = listing_authority_gaps(
             listing, verification, identity_verification_of(db, listing.owner_id)
@@ -146,6 +154,8 @@ def review(
         new_status=VerificationStatus(body.status),
         reviewer=admin,
         note=body.note,
+        tenant_permission_basis=body.tenant_permission_basis,
+        rental_agreement_valid_until=body.rental_agreement_valid_until,
     )
     db.commit()
     return _detail(db, kind, verification)
@@ -167,3 +177,63 @@ def confirm_with_owner(
     )
     db.commit()
     return _detail(db, "listing-authority", verification)
+
+
+# --- Listing moderation --------------------------------------------------------------
+#
+# The admin screens arrive in roadmap Phase 8; these are the backend for
+# them. Approving a property is refused until its listing authority is
+# verified (app/services/listing_moderation.py).
+
+
+def _load_listing(db: Session, listing_id: uuid.UUID) -> AccommodationListing:
+    listing = db.scalar(
+        with_listing_details(
+            select(AccommodationListing).where(AccommodationListing.id == listing_id)
+        )
+    )
+    if listing is None:
+        raise NotFoundError("That listing does not exist.")
+    return listing
+
+
+@router.get("/listings", response_model=list[AdminListingSummary])
+def list_listings(
+    _admin: CurrentAdmin,
+    db: Database,
+    moderation_status: ModerationStatus = ModerationStatus.PENDING,
+    include_drafts: bool = False,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[AdminListingSummary]:
+    """The moderation queue, oldest first. Drafts are left out unless asked
+    for: their creators have not submitted them yet."""
+    statement = select(AccommodationListing).where(
+        AccommodationListing.moderation_status == moderation_status
+    )
+    if not include_drafts:
+        statement = statement.where(
+            AccommodationListing.lifecycle_status != ListingLifecycleStatus.DRAFT
+        )
+    rows = db.scalars(
+        with_listing_details(statement.order_by(AccommodationListing.created_at).limit(limit))
+    )
+    return [admin_summary(row) for row in rows]
+
+
+@router.get("/listings/{listing_id}", response_model=AdminListingDetail)
+def read_listing(listing_id: uuid.UUID, _admin: CurrentAdmin, db: Database) -> AdminListingDetail:
+    return admin_detail(db, _load_listing(db, listing_id))
+
+
+@router.post("/listings/{listing_id}/moderation", response_model=AdminListingDetail)
+def moderate(
+    listing_id: uuid.UUID, body: ModerationRequest, admin: CurrentAdmin, db: Database
+) -> AdminListingDetail:
+    """Approve, reject, suspend or re-queue. A reason is required to reject
+    or suspend, and is shown to the listing's creator."""
+    listing = _load_listing(db, listing_id)
+    moderate_listing(
+        db, listing, new_status=ModerationStatus(body.status), actor=admin, note=body.note
+    )
+    db.commit()
+    return admin_detail(db, listing)

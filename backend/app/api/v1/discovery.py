@@ -8,14 +8,18 @@ app/services/compatibility.py; nothing here calculates anything.
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.deps import CurrentUser, Database
+from app.api.photos import PhotoStorage, photo_response
+from app.core.errors import NotFoundError, ProfileIncompleteError
 from app.core.rate_limit import rate_limit
-from app.models.enums import SwipeAction
+from app.models.enums import SwipeAction, UserRole
+from app.models.user import User
 from app.schemas.discovery import DecisionOut, DiscoveryPageOut, StudentViewOut
 from app.services import discovery as discovery_service
 from app.services import matching as matching_service
+from app.services.photos import OUTPUT_CONTENT_TYPE
 
 router = APIRouter(tags=["discovery"])
 
@@ -61,3 +65,24 @@ def pass_on(student_id: uuid.UUID, user: CurrentUser, db: Database) -> DecisionO
     result = matching_service.decide(db, user, student_id, SwipeAction.PASS)
     db.commit()
     return result
+
+
+@router.get("/students/{student_id}/photo")
+def read_student_photo(
+    student_id: uuid.UUID, user: CurrentUser, db: Database, storage: PhotoStorage
+) -> Response:
+    """A student's photo, for exactly the people who may open their profile
+    (and administrators). Anyone else gets "not found"."""
+    if student_id == user.id:
+        person: User | None = user
+    elif user.role == UserRole.ADMIN:
+        person = db.get(User, student_id)
+    else:
+        try:
+            person, _ = discovery_service.viewable_student(db, user, student_id)
+        except (NotFoundError, ProfileIncompleteError):
+            person = None
+    profile = person.student_profile if person is not None else None
+    if profile is None or profile.profile_photo_key is None:
+        raise NotFoundError("That photo does not exist.")
+    return photo_response(storage.read(profile.profile_photo_key), OUTPUT_CONTENT_TYPE)

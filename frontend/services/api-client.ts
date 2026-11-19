@@ -75,7 +75,7 @@ async function parseBody(response: Response): Promise<unknown> {
 }
 
 async function request(
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   body: unknown,
   options: RequestOptions,
@@ -147,6 +147,13 @@ export function apiPut(
   options: RequestOptions = {},
 ): Promise<unknown> {
   return request("PUT", path, body, options);
+}
+
+export function apiDelete(
+  path: string,
+  options: RequestOptions = {},
+): Promise<unknown> {
+  return request("DELETE", path, undefined, options);
 }
 
 /** Turn any thrown error into a sentence that is safe to show a person. */

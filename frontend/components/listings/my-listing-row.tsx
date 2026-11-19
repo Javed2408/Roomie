@@ -1,85 +1,76 @@
-"use client";
-
-import { DoorOpen, Users } from "lucide-react";
+import { ChevronRight, Hand, ImageOff, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
-import { ModerationStatusBadge } from "@/components/listings/moderation-status-badge";
-import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ListingStatusBadges } from "@/components/listings/listing-status-badges";
 import { Card } from "@/components/ui/card";
-import type { Listing } from "@/types/listing";
+import { formatTimestampDate } from "@/lib/format";
+import type { OwnListingSummary } from "@/types/listing";
 
-/**
- * One of the student's own listings, with its review status and actions.
- * Phase 1 shell: "Mark as filled" is remembered only by this component.
- */
-export function MyListingRow({ listing }: { listing: Listing }) {
-  const [isFilled, setIsFilled] = useState(false);
-  const isExisting = listing.type === "EXISTING_ACCOMMODATION";
-  // Only a post that is live can be marked as filled.
-  const canMarkFilled =
-    listing.moderationStatus === "APPROVED" &&
-    listing.lifecycleStatus === "ACTIVE" &&
-    !isFilled;
+const AUTHORITY_TEXT: Record<string, string> = {
+  NOT_SUBMITTED: "Evidence needed",
+  PENDING: "Evidence waiting for review",
+  APPROVED: "Listing authority verified",
+  REJECTED: "Evidence not approved",
+  NEEDS_RESUBMISSION: "More evidence needed",
+};
 
+/** One of your own listings, linking to where it is managed. */
+export function MyListingRow({ listing }: { listing: OwnListingSummary }) {
+  const isProperty = listing.type === "EXISTING_ACCOMMODATION";
   return (
-    <Card>
-      <div className="flex flex-wrap items-center gap-2">
-        {isExisting ? (
-          <Badge tone="primary">
-            <DoorOpen aria-hidden="true" className="size-3.5" />
-            Room available
-          </Badge>
-        ) : (
-          <Badge tone="info">
-            <Users aria-hidden="true" className="size-3.5" />
-            Looking to rent together
-          </Badge>
-        )}
-        <ModerationStatusBadge status={listing.moderationStatus} />
-        {isFilled && <Badge>Filled</Badge>}
-      </div>
-
-      <h2 className="mt-3 text-lg font-semibold">
-        <Link
-          href={`/accommodation/${listing.id}`}
-          className="hover:text-primary underline-offset-4 hover:underline"
-        >
-          {listing.title}
-        </Link>
-      </h2>
-
-      {listing.moderationStatus === "PENDING" && (
-        <p className="text-muted mt-1 text-sm leading-relaxed">
-          Waiting for review. It is not visible to other students yet.
-        </p>
-      )}
-      {listing.moderationNote && (
-        <Alert tone="danger" title="Why it was not approved" className="mt-3">
-          {listing.moderationNote}
-        </Alert>
-      )}
-      {isFilled && (
-        <p role="status" className="text-muted mt-1 text-sm">
-          Marked as filled (in this preview only).
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-3">
-        <ButtonLink
-          href={`/accommodation/${listing.id}`}
-          variant="secondary"
-          size="sm"
-        >
-          View
-        </ButtonLink>
-        {canMarkFilled && (
-          <Button variant="ghost" size="sm" onClick={() => setIsFilled(true)}>
-            Mark as filled
-          </Button>
-        )}
+    <Card padding="none" className="group relative">
+      <div className="flex gap-4 p-4">
+        <div className="bg-surface-muted text-subtle flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg sm:size-24">
+          {listing.coverPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={listing.coverPhoto.url}
+              alt=""
+              className="size-full object-cover"
+            />
+          ) : isProperty ? (
+            <ImageOff aria-hidden="true" className="size-6" />
+          ) : (
+            <Users aria-hidden="true" className="size-6" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <ListingStatusBadges
+            lifecycle={listing.lifecycleStatus}
+            moderation={listing.moderationStatus}
+            isPublic={listing.isPublic}
+          />
+          <h2 className="truncate text-base font-semibold">
+            <Link
+              href={`/accommodation/mine/${listing.id}`}
+              className="group-hover:text-primary after:rounded-card focus-visible:after:ring-primary after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2"
+            >
+              {listing.title}
+            </Link>
+          </h2>
+          <p className="text-muted flex flex-wrap gap-x-3 gap-y-1 text-sm">
+            <span>
+              {isProperty ? "Room available" : "Looking to rent together"}
+            </span>
+            {listing.authorityStatus && (
+              <span>{AUTHORITY_TEXT[listing.authorityStatus]}</span>
+            )}
+            <span>Updated {formatTimestampDate(listing.updatedAt)}</span>
+          </p>
+          {listing.moderationReason && (
+            <p className="text-danger text-sm">{listing.moderationReason}</p>
+          )}
+          {listing.pendingInterests > 0 && (
+            <p className="text-primary-strong flex items-center gap-1.5 text-sm font-medium">
+              <Hand aria-hidden="true" className="size-4" />
+              {listing.pendingInterests} waiting for your reply
+            </p>
+          )}
+        </div>
+        <ChevronRight
+          aria-hidden="true"
+          className="text-subtle size-5 shrink-0 self-center"
+        />
       </div>
     </Card>
   );

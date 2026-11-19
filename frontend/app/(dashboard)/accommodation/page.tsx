@@ -1,12 +1,9 @@
-import { Plus } from "lucide-react";
+import { Hand, List, Plus } from "lucide-react";
 import type { Metadata } from "next";
 
 import { PageHeader } from "@/components/app-shell/page-header";
 import { ListingDirectory } from "@/components/listings/listing-directory";
-import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
-import { SampleDataBadge } from "@/components/ui/sample-data-badge";
-import { LISTINGS } from "@/lib/mock/listings";
 
 export const metadata: Metadata = { title: "Accommodation" };
 
@@ -15,23 +12,23 @@ export default function AccommodationPage() {
     <>
       <PageHeader
         title="Accommodation"
-        description="Rooms with space to fill, and students looking to rent a place together."
-        aside={<SampleDataBadge />}
+        description="Rooms with space to fill, and students looking to rent a place together. Every post here has been reviewed by Roomie."
       />
-      <div className="mb-5 flex flex-wrap gap-3">
+      <div className="mb-6 flex flex-wrap gap-3">
         <ButtonLink href="/accommodation/new">
           <Plus aria-hidden="true" className="size-4" />
           Post a listing
         </ButtonLink>
         <ButtonLink href="/accommodation/mine" variant="secondary">
+          <List aria-hidden="true" className="size-4" />
           My listings
         </ButtonLink>
+        <ButtonLink href="/accommodation/interests" variant="ghost">
+          <Hand aria-hidden="true" className="size-4" />
+          My interests
+        </ButtonLink>
       </div>
-      <Alert tone="info" className="mb-5">
-        These posts are invented examples. No person, listing or property shown
-        here has been verified.
-      </Alert>
-      <ListingDirectory listings={LISTINGS} />
+      <ListingDirectory />
     </>
   );
 }

@@ -20,6 +20,7 @@ from app.models.enums import (
     ListingCreatorType,
     ListingType,
     OwnerConfirmationStatus,
+    TenantPermissionBasis,
     UserRole,
     VerificationStatus,
 )
@@ -32,6 +33,7 @@ from app.models.verification import (
     StudentVerification,
     VerificationDocument,
 )
+from app.services import notifications
 
 Verification = IdentityVerification | StudentVerification | ListingAuthorityVerification
 
@@ -52,10 +54,18 @@ def public_state(
         return "PENDING"
     if verification.status != VerificationStatus.APPROVED:
         return "NOT_VERIFIED"
+    today = today or datetime.now(UTC).date()
     # A student approval stops counting once enrolment has lapsed.
     if isinstance(verification, StudentVerification) and verification.valid_until is not None:
-        if verification.valid_until < (today or datetime.now(UTC).date()):
+        if verification.valid_until < today:
             return "NOT_VERIFIED"
+    # A tenant's authority stops counting once their rental agreement ends.
+    if (
+        isinstance(verification, ListingAuthorityVerification)
+        and verification.rental_agreement_valid_until is not None
+        and verification.rental_agreement_valid_until < today
+    ):
+        return "NOT_VERIFIED"
     return "VERIFIED"
 
 
@@ -64,40 +74,72 @@ def _current_document_types(documents: list[VerificationDocument]) -> set[Docume
     return {document.document_type for document in documents if document.deleted_at is None}
 
 
+def _identity_approved(identity_verification: IdentityVerification | None) -> bool:
+    return (
+        identity_verification is not None
+        and identity_verification.status == VerificationStatus.APPROVED
+    )
+
+
 def listing_authority_gaps(
     listing: AccommodationListing,
     verification: ListingAuthorityVerification,
     identity_verification: IdentityVerification | None,
+    *,
+    tenant_permission_basis: TenantPermissionBasis | None = None,
+    rental_agreement_valid_until: date | None = None,
+    today: date | None = None,
 ) -> list[str]:
     """Say what is still missing before listing authority can be approved.
 
     An empty list means every requirement for the listing's creator type is
-    met. The requirements are the ones in docs/DATABASE_SCHEMA.md, 3.7:
+    met. The requirements (docs/DATABASE_SCHEMA.md, 3.7):
 
-    * Owner:  proof of ownership.
-    * Tenant: a rental agreement. (Whether the landlord's permission is
-              also needed depends on the agreement, so the reviewer judges
-              that; it cannot be decided automatically.)
+    * Owner:  approved identity verification and proof of ownership.
+    * Tenant: a rental agreement that is still running, AND the reviewer's
+              record of why the tenant may take someone in: either the
+              agreement itself permits sharing, or the landlord's written
+              permission (which must then be among the documents). A
+              genuine agreement proves tenancy, not permission to share.
     * Agent:  approved identity verification, the owner's written
               authorisation, and confirmation obtained directly from the
               owner by a Roomie administrator.
+
+    For tenants, the permission basis and end date can be passed in (as
+    the reviewer approves) or already be stored on the verification.
     """
     documents = _current_document_types(verification.documents)
     gaps: list[str] = []
+    today = today or datetime.now(UTC).date()
 
     if listing.creator_type == ListingCreatorType.PROPERTY_OWNER:
+        if not _identity_approved(identity_verification):
+            gaps.append("The owner's identity has not been verified.")
         if DocumentType.OWNERSHIP_PROOF not in documents:
             gaps.append("Proof of ownership has not been provided.")
 
     elif listing.creator_type == ListingCreatorType.EXISTING_TENANT:
+        basis = tenant_permission_basis or verification.tenant_permission_basis
+        valid_until = rental_agreement_valid_until or verification.rental_agreement_valid_until
         if DocumentType.RENTAL_AGREEMENT not in documents:
             gaps.append("A rental agreement has not been provided.")
+        if valid_until is None:
+            gaps.append("Record the date the rental agreement ends.")
+        elif valid_until < today:
+            gaps.append("The rental agreement has already ended.")
+        if basis is None:
+            gaps.append(
+                "Record what permits the tenant to take someone in: the agreement "
+                "itself, or the landlord's permission."
+            )
+        elif (
+            basis == TenantPermissionBasis.LANDLORD_PERMISSION
+            and DocumentType.LANDLORD_PERMISSION not in documents
+        ):
+            gaps.append("The landlord's permission has not been provided.")
 
     elif listing.creator_type == ListingCreatorType.AUTHORIZED_AGENT:
-        if (
-            identity_verification is None
-            or identity_verification.status != VerificationStatus.APPROVED
-        ):
+        if not _identity_approved(identity_verification):
             gaps.append("The agent's identity has not been verified.")
         if DocumentType.OWNER_AUTHORIZATION not in documents:
             gaps.append("The owner's written authorisation has not been provided.")
@@ -145,11 +187,16 @@ def review_verification(
     new_status: VerificationStatus,
     reviewer: User,
     note: str | None = None,
+    tenant_permission_basis: TenantPermissionBasis | None = None,
+    rental_agreement_valid_until: date | None = None,
 ) -> ReviewEvent:
     """Record an administrator's decision on ONE verification.
 
     Only the verification passed in changes. Approving someone's identity
     does not touch their student verification or any listing authority.
+
+    For a tenant's listing authority, approving also records what the
+    reviewer saw: the permission basis and the agreement's end date.
     """
     _require_admin(reviewer)
 
@@ -160,16 +207,34 @@ def review_verification(
     if new_status in _NOTE_REQUIRED and not (note and note.strip()):
         raise BusinessRuleError("A reason is required when not approving a verification.")
 
+    is_tenant_authority = (
+        isinstance(verification, ListingAuthorityVerification)
+        and verification.listing.creator_type == ListingCreatorType.EXISTING_TENANT
+    )
+    if (tenant_permission_basis or rental_agreement_valid_until) and not is_tenant_authority:
+        raise BusinessRuleError(
+            "A permission basis and agreement end date apply only to a tenant's listing."
+        )
+
     if (
         isinstance(verification, ListingAuthorityVerification)
         and new_status == VerificationStatus.APPROVED
     ):
         listing = verification.listing
         gaps = listing_authority_gaps(
-            listing, verification, identity_verification_of(db, listing.owner_id)
+            listing,
+            verification,
+            identity_verification_of(db, listing.owner_id),
+            tenant_permission_basis=tenant_permission_basis,
+            rental_agreement_valid_until=rental_agreement_valid_until,
         )
         if gaps:
             raise BusinessRuleError("Listing authority cannot be approved yet.", details=gaps)
+        if is_tenant_authority:
+            if tenant_permission_basis:
+                verification.tenant_permission_basis = tenant_permission_basis
+            if rental_agreement_valid_until:
+                verification.rental_agreement_valid_until = rental_agreement_valid_until
 
     event = _review_event_for(verification)
     event.actor_id = reviewer.id
@@ -183,6 +248,20 @@ def review_verification(
     verification.reviewer_note = note
 
     db.add(event)
+    if isinstance(verification, ListingAuthorityVerification) and new_status in _NOTE_REQUIRED:
+        # The creator must act (upload new evidence), so tell them.
+        notifications.notify(
+            db,
+            verification.listing.owner_id,
+            type=notifications.AUTHORITY_NEEDS_ATTENTION,
+            title="Your listing needs more evidence",
+            body=(
+                f'Roomie could not confirm your right to list "{verification.listing.title}". '
+                "Open the listing to see why."
+            ),
+            reference_type="listing",
+            reference_id=verification.listing.id,
+        )
     db.flush()
     return event
 

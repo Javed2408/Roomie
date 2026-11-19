@@ -114,7 +114,11 @@ export function MatchesList() {
             <li key={match.id}>
               <Card className="flex h-full flex-col">
                 <div className="flex items-center gap-4">
-                  <Avatar name={match.student.fullName} size="lg" />
+                  <Avatar
+                    name={match.student.fullName}
+                    src={match.student.photoUrl}
+                    size="lg"
+                  />
                   <div className="min-w-0">
                     <h2 className="truncate text-lg font-semibold">
                       {match.student.fullName}

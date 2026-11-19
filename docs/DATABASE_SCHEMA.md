@@ -1,10 +1,25 @@
 # ROOMIE --- Database Schema and Data Model
 
-**Version:** 1.4\
-**Date:** 17 November 2026\
+**Version:** 1.5\
+**Date:** 19 November 2026\
 **Database:** PostgreSQL\
 **ORM:** SQLAlchemy 2.x\
 **Migrations:** Alembic
+
+**Changes in 1.5** (migration `0005`, see section 11):
+
+-   `accommodation_listings`: `brokerage_payable_to`, `facilities` and
+    `authority_declared_at`, with checks that brokerage names who receives
+    it, that only an authorised agent may collect it, that facilities come
+    from a fixed list, and that a property listing records its creator's
+    declaration of authority (section 3.10).
+-   `listing_authority_verifications`: `tenant_permission_basis` and
+    `rental_agreement_valid_until` (section 3.7).
+-   `listing_images`: `content_type`, `width`, `height`, `size_bytes`
+    (section 3.12).
+-   `listing_interests`: `acknowledged_brokerage_amount`, `responded_at`,
+    `updated_at` and an index on `user_id` (section 3.13).
+-   New append-only table `listing_changes` (section 3.24).
 
 **Changes in 1.4** (migration `0004`, see section 10):
 
@@ -354,9 +369,20 @@ approved (enforced by the verification service):
 
 | Creator type     | Required                                                                 |
 | ---------------- | ------------------------------------------------------------------------ |
-| Property owner   | `OWNERSHIP_PROOF` document                                               |
-| Existing tenant  | `RENTAL_AGREEMENT` document; `LANDLORD_PERMISSION` where the agreement requires it |
+| Property owner   | Approved identity verification and an `OWNERSHIP_PROOF` document          |
+| Existing tenant  | `RENTAL_AGREEMENT` document, its end date, and a recorded permission basis; `LANDLORD_PERMISSION` document when the agreement does not itself allow sharing |
 | Authorised agent | Approved identity verification, `OWNER_AUTHORIZATION` document, and owner confirmation `CONFIRMED` |
+
+Two further columns on `listing_authority_verifications`, filled in by
+the reviewer when approving a tenant (version 1.5):
+
+| Column                       | Type        | Constraints                         |
+| ---------------------------- | ----------- | ----------------------------------- |
+| tenant_permission_basis      | VARCHAR(30) | nullable; `AGREEMENT_PERMITS_SHARING` or `LANDLORD_PERMISSION` |
+| rental_agreement_valid_until | DATE        | nullable                            |
+
+A tenant's listing authority is treated as lapsed (and the listing is
+hidden) once `rental_agreement_valid_until` has passed.
 
 ### 3.8 `verification_documents`
 
@@ -427,10 +453,13 @@ is used for moderation decisions. Rows are never updated or deleted.
 | deposit              | INTEGER      | nullable, >= 0               |
 | brokerage_applicable | BOOLEAN      | conditional, see below       |
 | brokerage_amount     | INTEGER      | conditional, see below       |
+| brokerage_payable_to | VARCHAR(30)  | conditional, see below       |
 | brokerage_note       | VARCHAR(255) | nullable                     |
 | bedroom_count        | SMALLINT     | nullable, > 0                |
 | available_bedrooms   | SMALLINT     | nullable, > 0                |
 | furnishing           | VARCHAR(20)  | nullable                     |
+| facilities           | VARCHAR(30)[] | NOT NULL, default empty     |
+| authority_declared_at | TIMESTAMPTZ | required for properties      |
 | available_from       | DATE         | NOT NULL                     |
 | current_group_size   | SMALLINT     | NOT NULL, >= 0               |
 | required_roommates   | SMALLINT     | NOT NULL, > 0                |
@@ -479,6 +508,30 @@ Conditional checks, enforced by database constraints:
     true, `brokerage_amount` is required and positive; otherwise it must
     be null.
 -   `available_bedrooms <= bedroom_count` when both are present.
+-   When brokerage applies, `brokerage_payable_to` (`LISTING_CREATOR` or
+    `THIRD_PARTY_AGENT`) is required; otherwise it must be null.
+    `LISTING_CREATOR` is allowed only when `creator_type =
+    'AUTHORIZED_AGENT'`: an owner or tenant charging brokerage would be
+    acting as an unauthorised broker.
+-   `facilities` may only contain known values (Wi-Fi, air conditioning,
+    washing machine, fridge, kitchen, water purifier, geyser, power backup,
+    lift, parking, security, housekeeping).
+-   A property listing must have `authority_declared_at`: the moment its
+    creator declared they may offer it. The declaration is never treated as
+    evidence.
+
+**Full visibility rule (Phase 6).** Besides `ACTIVE` and `APPROVED`, a
+listing is shown only when its creator's account is active, its society
+(or, for a search post, at least one preferred society) and that
+society's locality are verified and switched on, a tenant's rental
+agreement has not ended, and neither person has blocked the other. The
+rule lives in one place: `app/repositories/listings.py`.
+
+**Changes send a live listing back for review.** Editing an approved
+listing, changing its photos or changing its brokerage sets
+`moderation_status` back to `PENDING`, hiding it until an administrator
+looks again. Changing the society or the creator type also reopens the
+listing authority check. Every change is written to `listing_changes`.
 
 Do not store unit numbers or exact addresses in any listing field.
 
@@ -496,9 +549,19 @@ Do not store unit numbers or exact addresses in any listing field.
 | ---------- | ----------- | -------------------------------------- |
 | id         | UUID        | PK                                     |
 | listing_id | UUID        | FK accommodation_listings.id, NOT NULL |
-| object_key | TEXT        | NOT NULL                               |
-| sort_order | SMALLINT    | NOT NULL, >= 0                         |
-| created_at | TIMESTAMPTZ | NOT NULL                               |
+| object_key   | TEXT        | NOT NULL                             |
+| sort_order   | SMALLINT    | NOT NULL, >= 0                       |
+| content_type | VARCHAR(50) | NOT NULL                             |
+| width        | SMALLINT    | NOT NULL, > 0                        |
+| height       | SMALLINT    | NOT NULL, > 0                        |
+| size_bytes   | INTEGER     | NOT NULL, > 0                        |
+| created_at   | TIMESTAMPTZ | NOT NULL                             |
+
+`object_key` is a random name in the private photo store, kept apart from
+verification documents. It is never sent to a browser: photos are served
+only through API routes that check, on every request, that the viewer
+may see the listing. Every stored photo is a re-encoded copy with all
+metadata (including GPS location) removed.
 
 ### 3.13 `listing_interests`
 
@@ -508,10 +571,18 @@ Do not store unit numbers or exact addresses in any listing field.
 | listing_id | UUID        | FK accommodation_listings.id, NOT NULL |
 | user_id    | UUID        | FK users.id, NOT NULL                  |
 | status     | VARCHAR(20) | NOT NULL, default PENDING              |
+| acknowledged_brokerage_amount | INTEGER | nullable, > 0             |
+| responded_at | TIMESTAMPTZ | nullable                             |
 | created_at | TIMESTAMPTZ | NOT NULL                               |
+| updated_at | TIMESTAMPTZ | NOT NULL                               |
 
 Unique: `(listing_id, user_id)`.\
 Statuses: `PENDING`, `ACCEPTED`, `DECLINED`, `WITHDRAWN`.
+
+`acknowledged_brokerage_amount` records the exact brokerage the student
+saw and accepted before expressing interest, so a later change of amount
+cannot be claimed to have been agreed. Withdrawn interest can be renewed
+(the same row is reused); declined interest cannot be repeated.
 
 ### 3.14 `swipes`
 
@@ -959,3 +1030,48 @@ request is retried or code changes later.
 **The match score is a record, not a promise.** It is stored as it was at
 the moment of matching, so a later profile change does not rewrite history.
 The current score is always worked out again when a profile is opened.
+
+### 3.24 `listing_changes`
+
+| Column     | Type        | Constraints                            |
+| ---------- | ----------- | -------------------------------------- |
+| id         | UUID        | PK                                     |
+| sequence   | BIGINT      | identity, always generated             |
+| listing_id | UUID        | FK accommodation_listings.id, NOT NULL |
+| actor_id   | UUID        | FK users.id, NOT NULL                  |
+| changes    | JSONB       | NOT NULL: field -> {from, to}          |
+| note       | TEXT        | nullable                               |
+| created_at | TIMESTAMPTZ | NOT NULL                               |
+
+Append-only history of a listing's edits, including every brokerage
+change, so a reviewer can see what changed since approval. `sequence`
+orders rows written in the same instant.
+
+## 11. Design decisions in version 1.5
+
+**Ownership is not permission to accommodate.** The listing authority
+check asks one question: may this person offer this room to a student?
+An owner proves ownership (and their identity). A tenant's genuine rental
+agreement proves only that they rent the flat; it does not by itself
+allow them to take someone in. So a reviewer approving a tenant must
+record `tenant_permission_basis`: either the agreement itself permits
+sharing (`AGREEMENT_PERMITS_SHARING`) or the landlord gave written
+permission (`LANDLORD_PERMISSION`, which requires that document). The
+agreement's end date is stored too, and the listing disappears from
+public view once it passes. An agent needs identity verification, the
+owner's written authorisation, and confirmation from the owner, whom
+Roomie contacts directly.
+
+**No new tables for photos or interest.** `listing_images` and
+`listing_interests` existed since version 1.1; Phase 6 added the columns
+they were missing. Profile photos use the existing
+`student_profiles.profile_photo_key`.
+
+**History is append-only.** `listing_changes` and `review_events` are
+never updated or deleted, so what a creator changed and what a reviewer
+decided can always be reconstructed.
+
+**Nothing is approved automatically.** Uploading evidence changes nothing
+by itself; submitting puts the listing in the review queue; only an
+administrator can set `moderation_status`. The API never accepts a
+status from a creator.

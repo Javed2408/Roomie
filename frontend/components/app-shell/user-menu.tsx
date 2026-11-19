@@ -77,7 +77,7 @@ export function UserMenu() {
         aria-label={`Account menu for ${displayName}`}
         className="hover:bg-surface-muted flex h-11 max-w-56 items-center gap-2 rounded-full pr-2 pl-1 transition-colors duration-150"
       >
-        <Avatar name={displayName} size="sm" />
+        <Avatar name={displayName} src={account.profile?.photoUrl} size="sm" />
         <span className="text-foreground hidden truncate text-sm font-medium sm:block">
           {displayName}
         </span>

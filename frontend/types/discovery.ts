@@ -61,6 +61,7 @@ export interface DecisionResult {
 export interface MatchStudent {
   id: string;
   fullName: string;
+  photoUrl: string | null;
   collegeName: string;
   course: string | null;
   department: string | null;

@@ -4,7 +4,6 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/app-shell/page-header";
 import { ListingForm } from "@/components/listings/listing-form";
-import { CURRENT_USER_AS_POSTER } from "@/lib/mock/listings";
 
 export const metadata: Metadata = { title: "Post a listing" };
 
@@ -20,9 +19,9 @@ export default function NewListingPage() {
       </Link>
       <PageHeader
         title="Post a listing"
-        description="Offer a room, or find people to rent a place with."
+        description="Offer a room, or find people to rent a place with. Every post is reviewed before students can see it."
       />
-      <ListingForm poster={CURRENT_USER_AS_POSTER} />
+      <ListingForm />
     </div>
   );
 }

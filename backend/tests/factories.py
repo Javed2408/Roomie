@@ -43,6 +43,7 @@ from app.models.enums import (
     SleepSchedule,
     StudentVerificationMethod,
     UserRole,
+    VerificationStatus,
 )
 
 _counter = itertools.count(1)
@@ -204,6 +205,7 @@ def make_property_listing(
         "society_id": make_society(db).id,
         "rent_per_person": 9000,
         "brokerage_applicable": False,
+        "authority_declared_at": datetime.now(UTC),
         "bedroom_count": 3,
         "available_bedrooms": 1,
         "available_from": date(2027, 1, 5),
@@ -249,6 +251,21 @@ def make_identity_verification(db: Session, user: User) -> IdentityVerification:
     verification = IdentityVerification(user_id=user.id)
     db.add(verification)
     db.flush()
+    return verification
+
+
+def approve_identity(db: Session, user: User, admin: User | None = None) -> IdentityVerification:
+    """An identity verification that an administrator has approved."""
+    reviewer = admin or make_admin(db)
+    existing = db.scalar(
+        select(IdentityVerification).where(IdentityVerification.user_id == user.id)
+    )
+    verification = existing or make_identity_verification(db, user)
+    verification.reviewed_by = reviewer.id
+    verification.reviewed_at = datetime.now(UTC)
+    verification.status = VerificationStatus.APPROVED
+    db.flush()
+    db.refresh(user)
     return verification
 
 

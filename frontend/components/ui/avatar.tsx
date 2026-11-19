@@ -30,18 +30,38 @@ function colourFor(name: string): string {
 
 interface AvatarProps {
   name: string;
+  /** An access-checked photo address; without one, initials are shown. */
+  src?: string | null;
   size?: AvatarSize;
   className?: string;
 }
 
 /**
- * Shows a person's initials. Photo support arrives with profile photo
- * uploads in roadmap Phase 6.
+ * Shows a person's photo, or their initials when they have none.
  *
- * The initials are decorative (`aria-hidden`): the person's name is always
- * shown as text next to the avatar, so reading both would be repetitive.
+ * Both are decorative (`aria-hidden`, empty alt): the person's name is
+ * always shown as text next to the avatar, so reading both would be
+ * repetitive. Photos come from the API, which checks on every request
+ * that the viewer may see them, so a plain <img> with the session cookie
+ * is used rather than an image optimiser that would fetch without it.
  */
-export function Avatar({ name, size = "md", className }: AvatarProps) {
+export function Avatar({ name, src, size = "md", className }: AvatarProps) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        className={cn(
+          "bg-surface-muted shrink-0 rounded-full object-cover",
+          SIZE_CLASSES[size],
+          className,
+        )}
+      />
+    );
+  }
   return (
     <span
       aria-hidden="true"

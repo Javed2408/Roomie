@@ -18,6 +18,7 @@ import type {
   VerificationDocumentType,
 } from "@/types/account";
 import { reasonsFrom } from "@/lib/compatibility";
+import { API_BASE_URL } from "@/lib/config";
 import type {
   AreaOverlap,
   Compatibility,
@@ -48,34 +49,49 @@ import type {
 } from "@/types/society";
 import type { VerificationState } from "@/types/verification";
 
-class UnexpectedResponseError extends Error {
+/**
+ * Turn an API path such as "/api/v1/students/1/photo" into a full address
+ * the browser can load. The backend never sends storage locations, only
+ * these access-checked API paths.
+ */
+export function apiAddress(path: string | null): string | null {
+  if (path === null) {
+    return null;
+  }
+  if (!path.startsWith("/api/")) {
+    throw new UnexpectedResponseError("photo address");
+  }
+  return `${API_BASE_URL}${path}`;
+}
+
+export class UnexpectedResponseError extends Error {
   constructor(what: string) {
     super(`Roomie sent an unexpected response (${what}). Please try again.`);
     this.name = "UnexpectedResponseError";
   }
 }
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 
-function record(value: unknown, what: string): Json {
+export function record(value: unknown, what: string): Json {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new UnexpectedResponseError(what);
   }
   return value as Json;
 }
 
-function text(value: unknown, what: string): string {
+export function text(value: unknown, what: string): string {
   if (typeof value !== "string") {
     throw new UnexpectedResponseError(what);
   }
   return value;
 }
 
-function optionalText(value: unknown, what: string): string | null {
+export function optionalText(value: unknown, what: string): string | null {
   return value === null || value === undefined ? null : text(value, what);
 }
 
-function optionalNumber(value: unknown, what: string): number | null {
+export function optionalNumber(value: unknown, what: string): number | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -85,7 +101,7 @@ function optionalNumber(value: unknown, what: string): number | null {
   return value;
 }
 
-function list(value: unknown, what: string): unknown[] {
+export function list(value: unknown, what: string): unknown[] {
   if (!Array.isArray(value)) {
     throw new UnexpectedResponseError(what);
   }
@@ -145,6 +161,7 @@ function parseProfile(value: unknown): AccountProfile | null {
     gender: optionalText(profile.gender, "profile.gender"),
     genderVisible: profile.gender_visible === true,
     profileCompleted: profile.profile_completed === true,
+    photoUrl: apiAddress(optionalText(profile.photo_url, "profile.photo_url")),
   };
 }
 
@@ -303,7 +320,7 @@ const PUBLIC_VERIFICATION_STATES: VerificationState[] = [
 ];
 
 /** One of a fixed set of values, or null; anything else is an error. */
-function oneOf<T extends string>(
+export function oneOf<T extends string>(
   value: unknown,
   allowed: readonly T[],
   what: string,
@@ -318,7 +335,7 @@ function oneOf<T extends string>(
   return found;
 }
 
-function required<T>(value: T | null, what: string): T {
+export function required<T>(value: T | null, what: string): T {
   if (value === null) {
     throw new UnexpectedResponseError(what);
   }
@@ -368,8 +385,7 @@ function parseStudentPublic(value: unknown): StudentProfile {
     academicYear: optionalNumber(student.academic_year, "student.year"),
     bio: optionalText(student.bio, "student.bio"),
     gender: optionalText(student.gender, "student.gender"),
-    // Photos arrive in roadmap Phase 6; until then everyone has initials.
-    profilePhotoKey: null,
+    photoUrl: apiAddress(optionalText(student.photo_url, "student.photo_url")),
     identityVerification:
       oneOf(student.identity_verification, PUBLIC_VERIFICATION_STATES, "id") ??
       "NOT_VERIFIED",
@@ -404,7 +420,7 @@ function parseStudentPublic(value: unknown): StudentProfile {
   };
 }
 
-function parseCandidate(value: unknown): DiscoveryCandidate {
+export function parseCandidate(value: unknown): DiscoveryCandidate {
   const item = record(value, "candidate");
   const compatibility = parseCompatibility(item.compatibility);
   return {
@@ -459,6 +475,9 @@ export function parseMatches(value: unknown): MatchSummary[] {
       student: {
         id: text(student.id, "student.id"),
         fullName: text(student.full_name, "student.full_name"),
+        photoUrl: apiAddress(
+          optionalText(student.photo_url, "student.photo_url"),
+        ),
         collegeName: text(student.college_name, "student.college_name"),
         course: optionalText(student.course, "student.course"),
         department: optionalText(student.department, "student.department"),

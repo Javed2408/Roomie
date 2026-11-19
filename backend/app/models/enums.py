@@ -160,6 +160,47 @@ class Furnishing(StrEnum):
     FULLY_FURNISHED = "FULLY_FURNISHED"
 
 
+class Facility(StrEnum):
+    """What a property offers. A fixed list, so listings can be filtered and
+    compared, and nobody can slip contact details into a "facility"."""
+
+    WIFI = "WIFI"
+    AIR_CONDITIONING = "AIR_CONDITIONING"
+    WASHING_MACHINE = "WASHING_MACHINE"
+    REFRIGERATOR = "REFRIGERATOR"
+    KITCHEN = "KITCHEN"
+    WATER_PURIFIER = "WATER_PURIFIER"
+    GEYSER = "GEYSER"
+    POWER_BACKUP = "POWER_BACKUP"
+    LIFT = "LIFT"
+    PARKING = "PARKING"
+    SECURITY = "SECURITY"
+    HOUSEKEEPING = "HOUSEKEEPING"
+
+
+class TenantPermissionBasis(StrEnum):
+    """Why a tenant may take another person into their home.
+
+    A genuine rental agreement proves tenancy, not permission to share or
+    sublet. The reviewer records which of these they actually saw.
+    """
+
+    AGREEMENT_PERMITS_SHARING = "AGREEMENT_PERMITS_SHARING"
+    LANDLORD_PERMISSION = "LANDLORD_PERMISSION"
+
+
+class BrokeragePayableTo(StrEnum):
+    """Who receives a brokerage fee, when one applies.
+
+    LISTING_CREATOR is allowed only when the creator is an authorised
+    agent: an owner or tenant charging "brokerage" would be acting as an
+    unauthorised broker.
+    """
+
+    LISTING_CREATOR = "LISTING_CREATOR"
+    THIRD_PARTY_AGENT = "THIRD_PARTY_AGENT"
+
+
 class ListingInterestStatus(StrEnum):
     PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"

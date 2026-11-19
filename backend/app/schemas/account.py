@@ -119,6 +119,8 @@ class ProfileOut(BaseModel):
     gender: str | None
     gender_visible: bool
     profile_completed: bool
+    # Your own photo's address (access-checked), or None for initials.
+    photo_url: str | None = None
 
 
 class PreferencesIn(BaseModel):

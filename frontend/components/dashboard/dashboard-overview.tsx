@@ -22,7 +22,7 @@ import { Card } from "@/components/ui/card";
 import { SampleDataBadge } from "@/components/ui/sample-data-badge";
 import { profileChecklist } from "@/lib/account-display";
 import { formatTimestampDate } from "@/lib/format";
-import { LISTINGS } from "@/lib/mock/listings";
+import { notificationHref } from "@/lib/notification-links";
 import { CONVERSATIONS } from "@/lib/mock/matches";
 import {
   fetchDiscovery,
@@ -30,6 +30,7 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
 } from "@/services/discovery";
+import { browseListings } from "@/services/listings";
 import type { AppNotification } from "@/types/discovery";
 
 interface SectionLink {
@@ -51,6 +52,8 @@ interface Overview {
   /** People left to discover; null when the profile is not published. */
   toDiscover: number | null;
   matches: number;
+  /** Approved, active listings anyone signed in can browse. */
+  listings: number;
   notifications: AppNotification[];
 }
 
@@ -67,11 +70,13 @@ function useOverview(isPublished: boolean) {
         : Promise.resolve(null),
       fetchMatches(signal),
       fetchNotifications(signal),
+      browseListings({ limit: 1 }, signal).then((page) => page.total),
     ])
-      .then(([toDiscover, matches, inbox]) =>
+      .then(([toDiscover, matches, inbox, listings]) =>
         setOverview({
           toDiscover,
           matches: matches.length,
+          listings,
           notifications: inbox.notifications.filter((item) => !item.isRead),
         }),
       )
@@ -120,8 +125,9 @@ function sectionsFor(
       href: "/accommodation",
       icon: Building2,
       title: "Accommodation",
-      status: `${LISTINGS.length} posts to browse`,
-      sample: true,
+      status: overview
+        ? `${plural(overview.listings, "post", "posts")} to browse`
+        : unknown,
     },
     {
       href: "/matches",
@@ -367,7 +373,7 @@ function NotificationsCard({
         {notifications.slice(0, 5).map((item) => (
           <li key={item.id}>
             <Link
-              href={item.type === "NEW_MATCH" ? "/matches" : "/dashboard"}
+              href={notificationHref(item)}
               className="hover:bg-surface-muted -mx-2 block rounded-lg px-2 py-1.5 transition-colors duration-150"
             >
               <span className="text-foreground block text-sm font-medium">
